@@ -1,6 +1,6 @@
 # RyLib
 
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://github.com/Ryannlt/RyLib/blob/main/LICENSE)
+[![Licence](https://img.shields.io/badge/licence-MIT-blue?style=flat-square)](https://github.com/Ryannlt/RyLib/blob/main/LICENSE)
 
 RyLib is a UI library for [BepInEx](https://github.com/BepInEx/BepInEx) client mods for **Holdfast: Nations At
 War**. Mods register P menu tabs, buttons, key hints and markers with RyLib by name, and RyLib places them in the
