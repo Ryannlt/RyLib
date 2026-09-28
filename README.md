@@ -2,36 +2,30 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://github.com/Ryannlt/RyLib/blob/main/LICENSE)
 
-A shared UI library for [BepInEx](https://github.com/BepInEx/BepInEx) client mods for **Holdfast: Nations At
-War**. Mods ask RyLib for UI by name - a P menu tab, a switch, a button on a player's row, a marker on the
-minimap - and RyLib decides where it goes, so two mods never draw on top of each other.
+RyLib is a UI library for [BepInEx](https://github.com/BepInEx/BepInEx) client mods for **Holdfast: Nations At
+War**. Mods register P menu tabs, buttons, key hints and markers with RyLib by name, and RyLib places them in the
+game's UI. Several mods can add to the same menus and bars at once without overlapping.
 
-It does nothing on its own. Install it because a mod you use depends on it; a mod manager does that for you.
+RyLib adds nothing to the game by itself. Mods that use it list it as a dependency, and mod managers install it
+with them.
 
-## Why a library
+## Features
 
-The game's P menu has pieces that only one mod can safely own at a time: the tab bar and the tab ids the menu
-keys everything by, the grid of buttons on an expanded player row, the bar under the players list, the kill log
-rows. The same goes for the minimap's pointer list and a player's glow. Two mods each patching those directly
-will overlap or break each other. RyLib owns them once and hands out space.
-
-## What a mod can ask for
-
-| | |
+| Feature | Description |
 | --- | --- |
-| [P menu tabs](#p-menu-tabs) | Header tabs with pages of switches, a shared **Mods** tab with one sub tab per mod, and map pages. |
-| [Players tab bar](#players-tab-bar) | Switches in the bar under the players list, next to Admin Raygun. |
-| [Player row actions](#player-row-actions) | Buttons on an expanded player row, laid out with the stock ones. |
-| [Kill log actions](#kill-log-actions) | A click on a kill log row opens actions for the killer and the victim. |
-| [Key hints](#key-hints) | An entry in the free roam and spectating key bars, drawn like the game's own. |
-| [World marks](#world-marks) | Rings, beams, floating labels and a through-walls glow on players or places. |
-| [Minimap marks](#minimap-marks) | Markers on the game's minimap that follow its own reveal rules. |
-| [Map pages](#map-pages) | An overhead picture of the battle with every player drawn by class and faction. |
-| [Helpers](#helpers) | Faction colours, the game's own icons inside TextMeshPro text, stock icon names. |
+| [P menu tabs](#p-menu-tabs) | Header tabs with pages of controls, a shared **Mods** tab with one sub tab per mod, and map pages. |
+| [Players tab bar](#players-tab-bar) | Controls in the bar under the players list, next to Admin Raygun. |
+| [Player row actions](#player-row-actions) | Buttons on an expanded player row, in the same grid as the game's buttons. |
+| [Kill log actions](#kill-log-actions) | Actions for the killer and the victim when a kill log row is clicked. |
+| [Key hints](#key-hints) | Entries in the free roam and spectating key bars. |
+| [World marks](#world-marks) | Rings, beams, labels and a glow visible through walls, on players or positions. |
+| [Minimap marks](#minimap-marks) | Markers on the game's minimap. |
+| [Map pages](#map-pages) | An overhead image of the battle with every player drawn by class and faction. |
+| [Helpers](#helpers) | Faction colours, game icons in TextMeshPro text, and stock icon names. |
 
-## For mod authors
+## Using RyLib in a mod
 
-Reference `RyLib.dll`, declare the dependency, and register in your plugin's `Awake`:
+Reference `RyLib.dll`, add the dependency, and register in your plugin's `Awake`:
 
 ```csharp
 [BepInPlugin(Guid, "MyMod", "1.0.0")]
@@ -47,23 +41,21 @@ public class MyMod : BaseUnityPlugin
 }
 ```
 
-And in `manifest.json`: `"Ryanlt-RyLib-1.0.0"`.
+Add `"Ryanlt-RyLib-1.0.0"` to the dependencies in `manifest.json`.
 
-### Rules every call follows
+### Conventions
 
-- **Pass your plugin GUID as the owner.** It is how RyLib names you in its log, and how it tells your
-  registrations apart from another mod's.
-- **Register in `Awake`.** RyLib builds the UI itself whenever the game creates it, and rebuilds it after a map
-  change, so you never touch the game's UI objects.
-- **Your callbacks cannot break anyone else's.** Each one runs in its own guard; an exception is logged with your
-  GUID and the rest of the UI carries on.
-- **Duplicates are refused, not doubled.** Registering the same label twice from one owner logs a warning and
-  returns `false`.
-- **Names are shared on purpose.** Tabs, pages and mod tabs are get-or-create by name, so two mods asking for the
-  same one both get it and their content stacks. Asking for an existing name as a different kind of page is a
-  collision; it is refused and both owners are logged.
-- **`visible` callbacks are polled.** Anything that takes a `Func<bool> visible` asks it a few times a second, so
-  a setting can show and hide your UI live. Leaving it `null` means always shown.
+- Every call takes your plugin GUID as `owner`. RyLib uses it in log messages and to keep each mod's
+  registrations separate.
+- Register everything in `Awake`. RyLib creates the UI when the game builds its own, and again after a map change.
+- Each callback runs inside its own `try`/`catch`. An exception is logged with your GUID and does not affect other
+  mods.
+- Registering the same label twice from one owner logs a warning and returns `false`.
+- Tabs, pages and mod tabs are looked up by name. Asking for an existing name returns the existing one, and
+  content from every mod is added to it. Asking for an existing name as a different kind of page is refused and
+  logged with both owners.
+- A `Func<bool> visible` parameter is called several times a second, and the UI shows or hides to match. `null`
+  means always visible.
 
 ### P menu tabs
 
@@ -76,9 +68,8 @@ bool      ModTab.Section(string owner, string title, Action<Section> build)
 bool      Page.Section(string owner, string title, Action<Section> build)
 ```
 
-**Most mods want `PMenu.ModTab`.** It adds a sub tab to one shared **Mods** header, in the style of ULX: a
-column of buttons on the left, one per mod, and the selected mod's sections on the right. Your settings sit
-beside every other mod's without costing a header each.
+`PMenu.ModTab` adds a sub tab to the shared **Mods** header tab. The Mods tab lists one button per mod on the
+left and shows the selected mod's sections on the right.
 
 ```csharp
 RyLib.ModTab tab = RyLib.PMenu.ModTab(Guid, "MyMod", RyLib.StockIcon.Shield);
@@ -89,18 +80,19 @@ tab.Section(Guid, "Display", section =>
 });
 ```
 
-`PMenu.Header` makes a header tab of your own, for something big enough to deserve one. Headers are laid out
-after the game's own, which are reserved (`Players`, `Rules`, `Admin`, `Maps`, `Kill Log`, `Artillery`); RyLib
-fits every label and icon into the space left, the stock ones included. A header holds pages - `Page` for
-sections, `MapPage` for a map - and several pages in one header get a strip of icon buttons to switch between
-them. A header with no visible page is hidden.
+`PMenu.Header` adds a header tab of your own after the game's tabs. The game's tab names are reserved: `Players`,
+`Rules`, `Admin`, `Maps`, `Kill Log` and `Artillery`. RyLib sizes every header label and icon to fit the bar,
+including the game's.
 
-`adminOnly` pages and mod tabs appear only once the server has accepted an `rc login`.
+A header tab holds pages. `Page` holds sections and `MapPage` holds a map. A header with more than one page shows
+a row of icon buttons for switching between them. A header with no visible pages is hidden.
+
+Pages and mod tabs with `adminOnly` set show only after the server accepts an `rc login`.
 
 ### Section controls
 
-A section is a titled block of buttons in the game's own style. Every control is bound to a BepInEx
-`ConfigEntry`, so it saves itself and follows edits made to the config file.
+A section is a titled group of buttons in the game's style. Each control is bound to a BepInEx `ConfigEntry`.
+The control saves the value when clicked and updates when the config file changes.
 
 ```csharp
 void Toggle(string label, ConfigEntry<bool> entry, string icon = null)
@@ -109,11 +101,14 @@ void Stepper(string label, ConfigEntry<float> entry, float step, string format =
 void Button(string label, Action onClick, string icon = null)
 ```
 
-- `Toggle` lights while the entry is on.
-- `Cycle` steps through an enum's values on each click. `text` names each value, `isOn` says which ones light it.
-- `Stepper` shows the value; left click raises it by `step`, right click lowers it, clamped to the entry's
-  acceptable range.
-- `icon` is the name of any sprite the game has loaded; `StockIcon` lists some.
+| Control | Behaviour |
+| --- | --- |
+| `Toggle` | Switches the entry on and off. Lit while on. |
+| `Cycle` | Moves to the next enum value on each click. `text` gives the label for each value and `isOn` sets which values light the button. |
+| `Stepper` | Shows the value. Left click adds `step`, right click subtracts it, within the entry's acceptable range. |
+| `Button` | Calls `onClick`. |
+
+`icon` is the name of any sprite the game has loaded. `StockIcon` has some of them.
 
 ### Players tab bar
 
@@ -123,8 +118,7 @@ bool PlayersBar.Cycle<T>(string owner, string label, ConfigEntry<T> entry, Func<
                          Func<T, bool> isOn = null, string icon = null)
 ```
 
-The same controls in the bar under the players list, beside the game's Admin Raygun button. Keep it to a
-switch an admin flips mid round.
+Adds a `Toggle` or `Cycle` control to the bar under the players list, next to the game's Admin Raygun button.
 
 ### Player row actions
 
@@ -133,16 +127,16 @@ bool PlayerRow.AddAction(string owner, string label, StockRowButton icon, Action
                          Func<bool> visible = null)
 ```
 
-Adds a button to the Actions block of an expanded player row in the P menu players tab, which only a logged in
-admin can open. Buttons from every mod fill a grid below the stock six - Slay, Revive, Slap, Heal, Bring, Go To -
-matching their size and spacing, adding rows as needed and growing the row to fit.
+Adds a button to the Actions block of an expanded player row in the P menu players tab. The block is only
+available to a logged in admin. Buttons from every mod go in a grid below the game's six buttons, at the same
+size and spacing, and the row grows to fit them.
 
-- `icon` borrows the symbol of a stock button: `Slay`, `Revive`, `Slap`, `Heal`, `Bring`, `GoTo`, `Message`,
-  `Kick` or `Ban`.
-- `onClick` gets the network player id of the row's player.
-- `visible` hides the button; the grid closes up around it.
+- `icon` uses the symbol of one of the game's row buttons: `Slay`, `Revive`, `Slap`, `Heal`, `Bring`, `GoTo`,
+  `Message`, `Kick` or `Ban`.
+- `onClick` receives the network player ID of the row's player.
+- When `visible` returns `false` the button is removed and the grid closes the gap.
 
-These buttons also appear in the kill log actions and on the map's selected player, when those are in use.
+These buttons also appear in the kill log actions and on the map's selected player panel.
 
 ### Kill log actions
 
@@ -150,10 +144,12 @@ These buttons also appear in the kill log actions and on the map's selected play
 bool KillLog.EnableActions(string owner, Func<bool> visible = null)
 ```
 
-Turns on actions in the admin kill log: clicking a row opens a panel under it split into the killer and the
-victim, each with Spectate, Go To, Bring, Slay, Revive, Heal, Slap and Kick, followed by every mod's player row
-actions. Slay, Slap and Kick ask for a second click within four seconds. It is off until a mod asks for it, and
-stays on while any mod that asked says yes.
+Turns on kill log actions. Clicking a row in the admin kill log opens a panel under it with actions for the
+killer and the victim: Spectate, Go To, Bring, Slay, Revive, Heal, Slap, Kick and every mod's player row
+actions. Slay, Slap and Kick need a second click within four seconds.
+
+The actions are off until a mod calls `EnableActions`, and stay on while any mod that called it returns `true`
+from `visible`.
 
 ### Key hints
 
@@ -161,9 +157,9 @@ stays on while any mod that asked says yes.
 bool KeyHints.Add(string owner, string label, Func<KeyCode[]> keys, Func<bool> visible = null)
 ```
 
-Adds an entry to the key bar the game shows in free roam (beside Admin Raygun) and while spectating (after Report
-Player), copied from the game's own entries so it matches them. Several keys share one entry, as `[ / ]`. Keys
-the game has no icon for are drawn from one of its own key caps, so they look the same. Hints show only to a
+Adds an entry to the key bar in free roam, after Admin Raygun, and to the key bar while spectating, after Report
+Player. The entry is a copy of one of the game's entries. Several keys share one entry and are shown as `[ / ]`.
+For a key the game has no icon for, RyLib draws one from the game's own key icons. Hints are shown only to a
 logged in admin.
 
 ```csharp
@@ -176,17 +172,17 @@ RyLib.KeyHints.Add(Guid, "Spectate Rambos", () => new[] { KeyCode.LeftBracket, K
 bool World.Layer(string owner, Action<List<WorldMark>> fill, float hz = 10f)
 ```
 
-Your `fill` is called `hz` times a second with an empty list; add a `WorldMark` for everything to draw. RyLib
-keeps what is drawn in step with the list, moves each mark every frame, and removes marks you stop adding.
+`fill` is called `hz` times a second with an empty list. Add a `WorldMark` for each thing to draw. Marks are
+moved every frame, and a mark missing from the list is removed.
 
-| `WorldMark` field | |
+| `WorldMark` field | Description |
 | --- | --- |
-| `Key` | Your id for the mark, unique within your layer. |
-| `Follow` | A transform to follow. When `null`, `Position` is used. |
-| `Glow` | An object to glow in `Colour`, drawn through walls with the game's own highlighter. When two layers glow the same object, the first one wins. |
-| `Colour` | Colour of the ring, beam, label and glow. |
-| `Label`, `LabelHeight` | Floating text above the mark, drawn under the P menu rather than over it. `null` for none. |
-| `RingRadius`, `BeamHeight` | A ground ring and a vertical beam, in metres. `0` for none. |
+| `Key` | ID for the mark, unique within your layer. |
+| `Follow` | Transform to follow. When `null`, `Position` is used. |
+| `Glow` | Object to glow in `Colour`, visible through walls. Uses the game's highlighter. If two layers glow the same object, the first layer's glow is used. |
+| `Colour` | Colour for the ring, beam, label and glow. |
+| `Label`, `LabelHeight` | Text above the mark, drawn under the P menu. `null` for no label. |
+| `RingRadius`, `BeamHeight` | Ground ring and vertical beam in metres. `0` for none. |
 
 ### Minimap marks
 
@@ -194,17 +190,17 @@ keeps what is drawn in step with the list, moves each mark every frame, and remo
 bool Minimap.Layer(string owner, Action<List<MinimapMark>> fill, float hz = 4f)
 ```
 
-Markers on the game's minimap, built from its own pointer class so they scale, rotate and clamp to the edge
-like the game's.
+Adds markers to the game's minimap. They use the game's minimap pointer class, which handles scaling, rotation
+and clamping to the edge.
 
-| `MinimapMark` field | |
+| `MinimapMark` field | Description |
 | --- | --- |
-| `Key` | Your id for the mark. |
-| `Follow` | The transform it tracks. Required. |
+| `Key` | ID for the mark. |
+| `Follow` | Transform to track. Required. |
 | `Shape` | `Ring`, `Dot` or `Flag`. |
-| `Faction` | The side the mark belongs to. It is then drawn blue on your side and red on the enemy's, and the enemy's only shows when the game would show that faction: revealed, last stand or an all charge. `None` always shows it, in `Colour`. |
-| `AlwaysShow` | Ignore those reveal rules. Keep this for admins. |
-| `Size` | Pixels. `0` for the default. |
+| `Faction` | Faction the mark belongs to. Marks for your faction are blue and marks for the enemy are red. Enemy marks only show when the game shows that faction, while it is revealed, in last stand or during an all charge. With `None` the mark always shows in `Colour`. |
+| `AlwaysShow` | Shows the mark regardless of the reveal rules. Use this only for admin features. |
+| `Size` | Size in pixels. `0` for the default. |
 
 ### Map pages
 
@@ -212,57 +208,65 @@ like the game's.
 bool Page.MapLayer(string owner, Action<List<MapMark>> fill)
 ```
 
-A map page renders an overhead picture of the current map once per round, framed on the spawns, and draws every
-player on it by class in their faction's colour. The icons are the game's own: the spawn menu's class glyphs,
-the minimap's officer marker and the ability icons. The side panel has a legend of the classes each faction can
-spawn with live counts, a search box, zoom and pan, and for a selected player Spectate, Go To, Bring, Teleport To
-and Slay, plus every mod's player row actions. A teleport only fires after its button has been pressed, so a
-stray click on the map never moves anyone.
+A map page renders an overhead image of the current map once per round, framed on the spawns, and draws each
+player as their class icon in their faction's colour. The icons come from the game: the spawn menu class
+icons, the minimap officer marker and ability icons.
 
-A map layer adds your own marks on top:
+The side panel has:
 
-| `MapMark` field | |
+- A legend of the classes each faction can spawn, with live counts.
+- A search box that filters the icons.
+- Zoom and pan.
+- For the selected player, Spectate, Go To, Bring, Teleport To, Slay and every mod's player row actions.
+
+Teleport To and Teleport Me wait for a click on the map before teleporting.
+
+A map layer adds marks to the map:
+
+| `MapMark` field | Description |
 | --- | --- |
-| `Key` | Your id for the mark. |
-| `OnPlayer`, `PlayerId` | Pin the mark to a player's icon. Otherwise it sits at `Position`. |
-| `Shape` | `Ring`, `Dot`, `Flag`, or `Outline`, which draws a coloured outline around the player's own class icon. |
-| `Colour`, `Size`, `Tooltip` | `Size` in pixels, `0` for the default. The tooltip shows on hover. |
+| `Key` | ID for the mark. |
+| `OnPlayer`, `PlayerId` | Attaches the mark to a player's icon. Otherwise the mark is placed at `Position`. |
+| `Shape` | `Ring`, `Dot`, `Flag`, or `Outline`. `Outline` draws a coloured outline around the player's class icon. |
+| `Colour` | Mark colour. |
+| `Size` | Size in pixels. `0` for the default. |
+| `Tooltip` | Text shown on hover. |
 
-A map page does its work only while it is open, so it costs nothing otherwise.
+A map page only updates while it is open.
 
 ### Helpers
 
-- `Factions.Colour(FactionCountry)`, `Factions.Name(FactionCountry)`, `Factions.ClassName(PlayerClass)`: one
-  palette and one set of names, so every mod colours a faction the same way.
-- `TextIcons.Tag(string gameSprite)`: returns a `<sprite>` tag that draws that game sprite inside any
-  TextMeshPro text, tinted by the text colour, or `null` if the sprite is not loaded yet. Ask again later; a
-  failed sprite is retried every ten seconds.
-- `StockIcon`: names of stock P menu sprites for the `icon` parameters.
-- `MapStyle.IconSize` and the `GlowStyle` entries: RyLib's own settings, for a mod that wants to put them on a
-  page.
+| Helper | Description |
+| --- | --- |
+| `Factions.Colour(FactionCountry)` | Colour for a faction. |
+| `Factions.Name(FactionCountry)` | Display name for a faction. |
+| `Factions.ClassName(PlayerClass)` | Display name for a class. |
+| `TextIcons.Tag(string gameSprite)` | A `<sprite>` tag that draws the named game sprite in TextMeshPro text, tinted by the text colour. Returns `null` while the sprite is not loaded. A failed sprite is retried after ten seconds. |
+| `StockIcon` | Names of P menu sprites for the `icon` parameters. |
+| `MapStyle.IconSize`, `GlowStyle` | RyLib's own config entries, for mods that show them on a page. |
 
 ## Settings
 
-`BepInEx\config\com.ryannlt.rylib.cfg`, read live.
+The config file is `BepInEx\config\com.ryannlt.rylib.cfg`. Changes to the file apply without a restart.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `[Glow] ScaleWithDistance` | `true` | Shrink glow outlines with distance, so a far player's halo is not bigger than they are. |
-| `[Glow] OutlineWidth` | `0.6` | Outline thickness. `0` turns it off. |
-| `[Glow] Brightness` | `0.7` | Colour multiplier. Above 1 lets the game's bloom make it glow. |
-| `[Glow] Glow` | `2` | Halo strength. `0` turns it off. |
+| `[Glow] ScaleWithDistance` | `true` | Scales glow outlines down with distance. |
+| `[Glow] OutlineWidth` | `0.6` | Outline thickness. `0` turns the outline off. |
+| `[Glow] Brightness` | `0.7` | Colour multiplier. Values above 1 make the game's bloom brighten the outline. |
+| `[Glow] Glow` | `2` | Halo strength. `0` turns the halo off. |
 | `[Glow] GlowWidth` | `0.04` | Halo width. |
 | `[Map] IconSize` | `22` | Size of the class icons on map pages, in pixels. |
 
 ## Building
 
-Same as the author's other mods: `build.ps1` compiles against the game's own assemblies and BepInEx from an
-r2modman profile, and drops `RyLib.dll` into that profile. `package.ps1` stages a Thunderstore zip. See
-[AdminHelper](https://github.com/Ryannlt/AdminHelper#building) for the details, which are identical.
+`build.ps1` compiles against the game's assemblies and the BepInEx in an r2modman profile, then copies
+`RyLib.dll` into that profile. `package.ps1` writes a Thunderstore zip to `Package\`. The options and
+requirements are the same as [AdminHelper's](https://github.com/Ryannlt/AdminHelper#building).
 
-`Icons\*.png` are embedded in the DLL. They are class icons the game does not have, white on transparent at any
-size, turned into outlined, tintable icons at runtime. Every other icon is read from the running game, so none
-of the game's art is shipped.
+The PNG files in `Icons\` are embedded in the DLL. They are class icons that the game does not include, as white
+shapes on a transparent background. RyLib turns them into outlined icons that can be tinted. All other icons are
+read from the game while it runs, and no game art is included in RyLib.
 
 ## Licence
 
