@@ -1,5 +1,6 @@
 # RyLib
 
+[![Latest release](https://img.shields.io/github/v/release/Ryannlt/RyLib?label=latest&style=flat-square)](https://github.com/Ryannlt/RyLib/releases/latest)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue?style=flat-square)](https://github.com/Ryannlt/RyLib/blob/main/LICENSE)
 
 RyLib is a UI library for [BepInEx](https://github.com/BepInEx/BepInEx) client mods for **Holdfast: Nations At
