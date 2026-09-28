@@ -1,0 +1,9 @@
+{
+  "name": "RyLib",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/Ryannlt/RyLib",
+  "description": "Shared UI library for Holdfast client mods. Lets several mods add P menu tabs, a shared Mods tab, a battle map, player and kill log actions, key hints and world or minimap markers without colliding.",
+  "dependencies": [
+    "HoldfastModding-BepInExPack_Holdfast-5.4.2305"
+  ]
+}
