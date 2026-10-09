@@ -4,12 +4,12 @@ using BepInEx;
 using HarmonyLib;
 using UnityEngine.SceneManagement;
 
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.1.1.0")]
+[assembly: AssemblyFileVersion("1.1.1.0")]
 
 namespace RyLib
 {
-    [BepInPlugin(Guid, "RyLib", "1.1.0")]
+    [BepInPlugin(Guid, "RyLib", "1.1.1")]
     public class RyLibPlugin : BaseUnityPlugin
     {
         public const string Guid = "com.ryannlt.rylib";

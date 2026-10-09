@@ -13,13 +13,23 @@ namespace RyLib
         public float Radius = -1f;
         public float BeamHeight = -1f;
         public Color Color = new Color(-1f, -1f, -1f, -1f);
+        public Vector3 Placed = new Vector3(float.NaN, float.NaN, float.NaN);
     }
 
     internal static class Rings
     {
         private const int Segments = 48;
         private const float Width = 0.14f;
-        private const float GroundOffset = 0.05f;
+        private const float GroundOffset = 0.08f;
+        private const float ProbeLift = 0.5f;
+        private const float ProbeDepth = 12f;
+        private const float StructureGap = 0.6f;
+        private const float Settle = 0.05f;
+        private const float TerrainSeconds = 2f;
+        private const int GroundMask = (1 << 9) | (1 << 13) | (1 << 14) | (1 << 25);
+
+        private static Terrain[] _terrains = new Terrain[0];
+        private static float _nextTerrains;
 
         private static readonly List<Ring> Pool = new List<Ring>();
         private static readonly Vector3[] Points = new Vector3[Segments + 1];
@@ -48,18 +58,7 @@ namespace RyLib
             {
                 ring.Radius = mark.RingRadius;
                 ring.Circle.enabled = mark.RingRadius > 0f;
-
-                if (mark.RingRadius > 0f)
-                {
-                    for (int i = 0; i <= Segments; i++)
-                    {
-                        float angle = i * Mathf.PI * 2f / Segments;
-                        Points[i] = new Vector3(Mathf.Cos(angle) * mark.RingRadius, GroundOffset, Mathf.Sin(angle) * mark.RingRadius);
-                    }
-
-                    ring.Circle.positionCount = Segments + 1;
-                    ring.Circle.SetPositions(Points);
-                }
+                ring.Placed = new Vector3(float.NaN, float.NaN, float.NaN);
             }
 
             if (!Mathf.Approximately(ring.BeamHeight, mark.BeamHeight))
@@ -86,7 +85,67 @@ namespace RyLib
 
         public static void Move(World.Live live, Vector3 position)
         {
-            if (live.Ring != null && live.Ring.Root != null) live.Ring.Root.transform.position = position;
+            Ring ring = live.Ring;
+            if (ring == null || ring.Root == null) return;
+
+            bool flat;
+            float ground = GroundUnder(position, out flat);
+            Vector3 center = new Vector3(position.x, ground, position.z);
+            ring.Root.transform.position = center;
+
+            if (ring.Radius <= 0f) return;
+            if (!float.IsNaN(ring.Placed.x) && (ring.Placed - center).sqrMagnitude < Settle * Settle) return;
+            ring.Placed = center;
+
+            for (int i = 0; i <= Segments; i++)
+            {
+                float angle = i * Mathf.PI * 2f / Segments;
+                float x = center.x + Mathf.Cos(angle) * ring.Radius;
+                float z = center.z + Mathf.Sin(angle) * ring.Radius;
+                float y = flat ? ground : TerrainHeight(x, z, ground);
+                Points[i] = new Vector3(x, y + GroundOffset, z);
+            }
+
+            ring.Circle.positionCount = Segments + 1;
+            ring.Circle.SetPositions(Points);
+        }
+
+        private static float GroundUnder(Vector3 position, out bool flat)
+        {
+            float terrain = TerrainHeight(position.x, position.z, float.NaN);
+
+            RaycastHit hit;
+            if (Physics.Raycast(position + Vector3.up * ProbeLift, Vector3.down, out hit, ProbeDepth, GroundMask, QueryTriggerInteraction.Ignore))
+            {
+                flat = float.IsNaN(terrain) || hit.point.y > terrain + StructureGap;
+                return flat ? hit.point.y : terrain;
+            }
+
+            flat = float.IsNaN(terrain);
+            return flat ? position.y : terrain;
+        }
+
+        private static float TerrainHeight(float x, float z, float fallback)
+        {
+            if (Time.unscaledTime >= _nextTerrains)
+            {
+                _nextTerrains = Time.unscaledTime + TerrainSeconds;
+                _terrains = Terrain.activeTerrains;
+            }
+
+            for (int i = 0; i < _terrains.Length; i++)
+            {
+                Terrain terrain = _terrains[i];
+                if (terrain == null || terrain.terrainData == null) continue;
+
+                Vector3 origin = terrain.transform.position;
+                Vector3 size = terrain.terrainData.size;
+                if (x < origin.x || z < origin.z || x > origin.x + size.x || z > origin.z + size.z) continue;
+
+                return terrain.SampleHeight(new Vector3(x, 0f, z)) + origin.y;
+            }
+
+            return fallback;
         }
 
         public static void Release(World.Live live)
@@ -113,19 +172,19 @@ namespace RyLib
 
             ring.Root = new GameObject("RyLib_Ring");
             ring.Root.transform.SetParent(World.Root, false);
-            ring.Circle = Line(ring.Root, ring.Material, Segments + 1);
+            ring.Circle = Line(ring.Root, ring.Material, Segments + 1, true);
 
             GameObject beam = new GameObject("Beam");
             beam.transform.SetParent(ring.Root.transform, false);
-            ring.Beam = Line(beam, ring.Material, 2);
+            ring.Beam = Line(beam, ring.Material, 2, false);
 
             return ring;
         }
 
-        private static LineRenderer Line(GameObject host, Material material, int points)
+        private static LineRenderer Line(GameObject host, Material material, int points, bool world)
         {
             LineRenderer line = host.AddComponent<LineRenderer>();
-            line.useWorldSpace = false;
+            line.useWorldSpace = world;
             line.loop = false;
             line.positionCount = points;
             line.startWidth = line.endWidth = Width;

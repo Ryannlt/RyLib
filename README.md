@@ -30,7 +30,7 @@ Reference `RyLib.dll`, add the dependency, and register in your plugin's `Awake`
 
 ```csharp
 [BepInPlugin(Guid, "MyMod", "1.0.0")]
-[BepInDependency(RyLib.RyLibPlugin.Guid, "1.1.0")]
+[BepInDependency(RyLib.RyLibPlugin.Guid, "1.1.1")]
 public class MyMod : BaseUnityPlugin
 {
     public const string Guid = "com.example.mymod";
@@ -42,7 +42,7 @@ public class MyMod : BaseUnityPlugin
 }
 ```
 
-Add `"Ryanlt-RyLib-1.1.0"` to the dependencies in `manifest.json`.
+Add `"Ryanlt-RyLib-1.1.1"` to the dependencies in `manifest.json`.
 
 ### Conventions
 
@@ -212,7 +212,7 @@ moved every frame, and a mark missing from the list is removed.
 | `Glow` | Object to glow in `Color`, visible through walls. Uses the game's highlighter. If two layers glow the same object, the first layer's glow is used. |
 | `Color` | Color for the ring, beam, label and glow. |
 | `Label`, `LabelHeight` | Text above the mark, drawn under the P menu. `null` for no label. |
-| `RingRadius`, `BeamHeight` | Ground ring and vertical beam in meters. `0` for none. |
+| `RingRadius`, `BeamHeight` | Ring on the ground and vertical beam, in meters. `0` for none. The ring follows the terrain, or lies flat on a bridge or floor under the mark. |
 
 ### Minimap marks
 

@@ -1,8 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+- **World rings follow the ground** instead of floating at the height of the mark. On a bridge or floor above the
+  terrain, the ring lies flat on it.
+
 ## 1.1.0
 
-- **Settings rows.** Sections can hold sliders, dropdowns and text fields, copied from the game's Admin tab:
+- **Settings rows.** Sections can hold sliders, dropdowns and text fields in the style of the game's Admin tab:
   `Section.Slider`, `Section.Dropdown` and `Section.TextField`.
 - **`Section.ConfirmButton`** needs a second click within four seconds.
 - **Admin tab look.** Section pages and the Mods tab use the Admin tab's header with its gold bars, section titles
