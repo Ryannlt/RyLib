@@ -38,16 +38,16 @@ namespace RyLib
 
         public static void Strip(GameObject target)
         {
-            MonoBehaviour[] behaviours = target.GetComponentsInChildren<MonoBehaviour>(true);
-            for (int i = 0; i < behaviours.Length; i++)
+            MonoBehaviour[] behaviors = target.GetComponentsInChildren<MonoBehaviour>(true);
+            for (int i = 0; i < behaviors.Length; i++)
             {
-                if (behaviours[i] == null) continue;
+                if (behaviors[i] == null) continue;
 
-                string type = behaviours[i].GetType().Name;
+                string type = behaviors[i].GetType().Name;
                 if (type.IndexOf("Localize", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     type == "UIAutoScrollableListItem" || type == "UIBasicTooltipEntry")
                 {
-                    UnityEngine.Object.Destroy(behaviours[i]);
+                    UnityEngine.Object.Destroy(behaviors[i]);
                 }
             }
         }

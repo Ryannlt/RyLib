@@ -10,7 +10,7 @@ namespace RyLib
         public Transform Follow;
         public Vector3 Position;
         public GameObject Glow;
-        public Color Colour;
+        public Color Color;
         public string Label;
         public float LabelHeight;
         public float RingRadius;
@@ -19,8 +19,8 @@ namespace RyLib
 
     public static class World
     {
-        private const float NearMetres = 40f;
-        private const float MidMetres = 150f;
+        private const float NearMeters = 40f;
+        private const float MidMeters = 150f;
         private const float OffScreenSeconds = 0.25f;
         private const float MidSeconds = 0.05f;
         private const float FarSeconds = 0.1f;
@@ -147,7 +147,7 @@ namespace RyLib
 
                     Rings.Apply(live);
                     Labels.Apply(live);
-                    if (mark.Glow != null) Glows.Want(mark.Glow, mark.Colour);
+                    if (mark.Glow != null) Glows.Want(mark.Glow, mark.Color);
                 }
             }
 
@@ -203,8 +203,8 @@ namespace RyLib
                           viewport.y > -0.1f && viewport.y < 1.1f;
 
             if (!inView) return OffScreenSeconds;
-            if (viewport.z < NearMetres) return 0f;
-            return (viewport.z < MidMetres) ? MidSeconds : FarSeconds;
+            if (viewport.z < NearMeters) return 0f;
+            return (viewport.z < MidMeters) ? MidSeconds : FarSeconds;
         }
     }
 }

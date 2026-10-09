@@ -24,7 +24,7 @@ namespace RyLib
             public GameObject Target;
             public HighlightEffect Effect;
             public Renderer[] Renderers = new Renderer[0];
-            public Color Colour;
+            public Color Color;
             public float NextScan;
             public bool Wanted;
             public int Style;
@@ -46,7 +46,7 @@ namespace RyLib
             foreach (KeyValuePair<int, Glow> pair in Live) pair.Value.Wanted = false;
         }
 
-        public static void Want(GameObject target, Color colour)
+        public static void Want(GameObject target, Color color)
         {
             if (target == null || _wanted >= MaxGlows) return;
 
@@ -61,7 +61,7 @@ namespace RyLib
                 glow.Target = target;
                 glow.Renderers = new Renderer[0];
                 glow.NextScan = 0f;
-                glow.Colour = new Color(-1f, -1f, -1f, -1f);
+                glow.Color = new Color(-1f, -1f, -1f, -1f);
                 Live[id] = glow;
             }
 
@@ -75,10 +75,10 @@ namespace RyLib
                 {
                     Style(glow.Effect);
                     glow.Style = GlowStyle.Version;
-                    glow.Colour = new Color(-1f, -1f, -1f, -1f);
+                    glow.Color = new Color(-1f, -1f, -1f, -1f);
                 }
 
-                if (glow.Colour != colour) Paint(glow, colour);
+                if (glow.Color != color) Paint(glow, color);
                 if (Time.unscaledTime >= glow.NextScan) Scan(glow);
                 if (glow.Renderers.Length > 0 && !glow.Effect.highlighted) glow.Effect.SetHighlighted(true);
             }
@@ -106,18 +106,18 @@ namespace RyLib
             }
         }
 
-        internal static bool Dark(Color colour)
+        internal static bool Dark(Color color)
         {
-            return 0.2126f * colour.r + 0.7152f * colour.g + 0.0722f * colour.b < DarkLuminance;
+            return 0.2126f * color.r + 0.7152f * color.g + 0.0722f * color.b < DarkLuminance;
         }
 
-        private static void Paint(Glow glow, Color colour)
+        private static void Paint(Glow glow, Color color)
         {
-            glow.Colour = colour;
+            glow.Color = color;
 
-            bool dark = Dark(colour);
+            bool dark = Dark(color);
             float boost = GlowStyle.Brightness.Value;
-            Color bright = dark ? colour : new Color(colour.r * boost, colour.g * boost, colour.b * boost, 1f);
+            Color bright = dark ? color : new Color(color.r * boost, color.g * boost, color.b * boost, 1f);
 
             HighlightEffect effect = glow.Effect;
             effect.glowBlendMode = dark ? GlowBlendMode.AlphaBlending : GlowBlendMode.Additive;

@@ -11,7 +11,7 @@ namespace RyLib
         public RectTransform Rect;
         public TMP_Text Text;
         public string Shown;
-        public Color Colour = new Color(-1f, -1f, -1f, -1f);
+        public Color Color = new Color(-1f, -1f, -1f, -1f);
         public float Height;
         public bool Showing;
     }
@@ -21,7 +21,7 @@ namespace RyLib
         private const float FontSize = 15f;
         private const float DefaultHeight = 2.1f;
 
-        private static readonly Color PanelColour = new Color(0.05f, 0.05f, 0.06f, 0.78f);
+        private static readonly Color PanelColor = new Color(0.05f, 0.05f, 0.06f, 0.78f);
         private static readonly Vector2 Padding = new Vector2(14f, 8f);
         private static readonly List<Label> Pool = new List<Label>();
 
@@ -54,10 +54,10 @@ namespace RyLib
                 label.Rect.sizeDelta = label.Text.GetPreferredValues(mark.Label) + Padding;
             }
 
-            if (label.Colour != mark.Colour)
+            if (label.Color != mark.Color)
             {
-                label.Colour = mark.Colour;
-                label.Text.color = Glows.Dark(mark.Colour) ? Color.Lerp(mark.Colour, Color.white, 0.65f) : mark.Colour;
+                label.Color = mark.Color;
+                label.Text.color = Glows.Dark(mark.Color) ? Color.Lerp(mark.Color, Color.white, 0.65f) : mark.Color;
             }
 
             label.Height = (mark.LabelHeight > 0f) ? mark.LabelHeight : DefaultHeight;
@@ -176,7 +176,7 @@ namespace RyLib
             label.Rect.pivot = new Vector2(0.5f, 0f);
 
             Image panel = label.Root.AddComponent<Image>();
-            panel.color = PanelColour;
+            panel.color = PanelColor;
             panel.raycastTarget = false;
 
             GameObject textHost = new GameObject("Text", typeof(RectTransform));

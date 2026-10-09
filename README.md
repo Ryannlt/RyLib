@@ -1,7 +1,7 @@
 # RyLib
 
 [![Latest release](https://img.shields.io/github/v/release/Ryannlt/RyLib?label=latest&style=flat-square)](https://github.com/Ryannlt/RyLib/releases/latest)
-[![Licence](https://img.shields.io/badge/licence-MIT-blue?style=flat-square)](https://github.com/Ryannlt/RyLib/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://github.com/Ryannlt/RyLib/blob/main/LICENSE)
 
 RyLib is a UI library for [BepInEx](https://github.com/BepInEx/BepInEx) client mods for **Holdfast: Nations At
 War**. Mods register P menu tabs, buttons, key hints and markers with RyLib by name, and RyLib places them in the
@@ -22,7 +22,7 @@ with them.
 | [World marks](#world-marks) | Rings, beams, labels and a glow visible through walls, on players or positions. |
 | [Minimap marks](#minimap-marks) | Markers on the game's minimap. |
 | [Map pages](#map-pages) | An overhead image of the battle with every player drawn by class and faction. |
-| [Helpers](#helpers) | Faction colours, game icons in TextMeshPro text, and stock icon names. |
+| [Helpers](#helpers) | Faction colors, game icons in TextMeshPro text, and stock icon names. |
 
 ## Using RyLib in a mod
 
@@ -30,7 +30,7 @@ Reference `RyLib.dll`, add the dependency, and register in your plugin's `Awake`
 
 ```csharp
 [BepInPlugin(Guid, "MyMod", "1.0.0")]
-[BepInDependency(RyLib.RyLibPlugin.Guid)]
+[BepInDependency(RyLib.RyLibPlugin.Guid, "1.1.0")]
 public class MyMod : BaseUnityPlugin
 {
     public const string Guid = "com.example.mymod";
@@ -42,7 +42,7 @@ public class MyMod : BaseUnityPlugin
 }
 ```
 
-Add `"Ryanlt-RyLib-1.0.0"` to the dependencies in `manifest.json`.
+Add `"Ryanlt-RyLib-1.1.0"` to the dependencies in `manifest.json`.
 
 ### Conventions
 
@@ -67,6 +67,7 @@ Page      HeaderTab.Page(string owner, string name, string icon = null, bool adm
 Page      HeaderTab.MapPage(string owner, string name, string icon = null, Func<bool> visible = null)
 bool      ModTab.Section(string owner, string title, Action<Section> build)
 bool      Page.Section(string owner, string title, Action<Section> build)
+bool      PMenu.StockTabVisible(string owner, StockTab tab, Func<bool> visible)
 ```
 
 `PMenu.ModTab` adds a sub tab to the shared **Mods** header tab. The Mods tab lists one button per mod on the
@@ -90,24 +91,52 @@ a row of icon buttons for switching between them. A header with no visible pages
 
 Pages and mod tabs with `adminOnly` set show only after the server accepts an `rc login`.
 
+Section pages and the Mods tab use the header of the game's Admin tab, with the title in capitals between two
+gold bars. Each section starts with its title in capitals and a divider line across the rest of the row.
+
+`PMenu.StockTabVisible` hides one of the game's own tabs while `visible` returns `false`. `StockTab.Rules` is the
+only one supported. While it is hidden, the other headers share its space and tab cycling skips it.
+
 ### Section controls
 
-A section is a titled group of buttons in the game's style. Each control is bound to a BepInEx `ConfigEntry`.
-The control saves the value when clicked and updates when the config file changes.
+A section is a titled group of controls in the game's style. Each control is bound to a BepInEx `ConfigEntry`.
+The control saves the value when it changes and updates when the config file changes.
+
+Buttons:
 
 ```csharp
 void Toggle(string label, ConfigEntry<bool> entry, string icon = null)
 void Cycle<T>(string label, ConfigEntry<T> entry, Func<T, string> text = null, Func<T, bool> isOn = null, string icon = null)
 void Stepper(string label, ConfigEntry<float> entry, float step, string format = "0.00", string icon = null)
 void Button(string label, Action onClick, string icon = null)
+void ConfirmButton(string label, Action onClick, string icon = null)
 ```
 
-| Control | Behaviour |
+Rows, each a label with a control drawn in the style of the game's Admin tab:
+
+```csharp
+void Slider(string label, ConfigEntry<float> entry, float min, float max, float step, string format = "0.0")
+void Slider(string label, ConfigEntry<int> entry, int min, int max)
+void Dropdown<T>(string label, ConfigEntry<T> entry, Func<T, string> text = null)
+void TextField(string label, ConfigEntry<string> entry)
+```
+
+| Control | Behavior |
 | --- | --- |
 | `Toggle` | Switches the entry on and off. Lit while on. |
 | `Cycle` | Moves to the next enum value on each click. `text` gives the label for each value and `isOn` sets which values light the button. |
 | `Stepper` | Shows the value. Left click adds `step`, right click subtracts it, within the entry's acceptable range. |
 | `Button` | Calls `onClick`. |
+| `ConfirmButton` | The first click changes the label to "Confirm" followed by the label. A second click within four seconds calls `onClick`. |
+| `Slider` | A slider with a value box. Values snap to `step` and stay between `min` and `max`. Typing in the box also sets the value. |
+| `Dropdown` | A list of the enum's values. `text` gives the label for each value. |
+| `TextField` | A text box. The entry is saved when editing ends. |
+
+Sliders and text boxes sit in a dark box with the Admin tab's border, and dropdowns use the Admin tab's own
+dropdown.
+
+Buttons sit in a grid at the top of the section and rows are listed below it. If the Admin tab templates cannot
+be found, a `Slider` becomes a `Stepper`, a `Dropdown` becomes a `Cycle` and a `TextField` is left out.
 
 `icon` is the name of any sprite the game has loaded. `StockIcon` has some of them.
 
@@ -180,10 +209,10 @@ moved every frame, and a mark missing from the list is removed.
 | --- | --- |
 | `Key` | ID for the mark, unique within your layer. |
 | `Follow` | Transform to follow. When `null`, `Position` is used. |
-| `Glow` | Object to glow in `Colour`, visible through walls. Uses the game's highlighter. If two layers glow the same object, the first layer's glow is used. |
-| `Colour` | Colour for the ring, beam, label and glow. |
+| `Glow` | Object to glow in `Color`, visible through walls. Uses the game's highlighter. If two layers glow the same object, the first layer's glow is used. |
+| `Color` | Color for the ring, beam, label and glow. |
 | `Label`, `LabelHeight` | Text above the mark, drawn under the P menu. `null` for no label. |
-| `RingRadius`, `BeamHeight` | Ground ring and vertical beam in metres. `0` for none. |
+| `RingRadius`, `BeamHeight` | Ground ring and vertical beam in meters. `0` for none. |
 
 ### Minimap marks
 
@@ -199,7 +228,7 @@ and clamping to the edge.
 | `Key` | ID for the mark. |
 | `Follow` | Transform to track. Required. |
 | `Shape` | `Ring`, `Dot` or `Flag`. |
-| `Faction` | Faction the mark belongs to. Marks for your faction are blue and marks for the enemy are red. Enemy marks only show when the game shows that faction, while it is revealed, in last stand or during an all charge. With `None` the mark always shows in `Colour`. |
+| `Faction` | Faction the mark belongs to. Marks for your faction are blue and marks for the enemy are red. Enemy marks only show when the game shows that faction, while it is revealed, in last stand or during an all charge. With `None` the mark always shows in `Color`. |
 | `AlwaysShow` | Shows the mark regardless of the reveal rules. Use this only for admin features. |
 | `Size` | Size in pixels. `0` for the default. |
 
@@ -209,9 +238,13 @@ and clamping to the edge.
 bool Page.MapLayer(string owner, Action<List<MapMark>> fill)
 ```
 
-A map page renders an overhead image of the current map once per round, framed on the spawns, and draws each
-player as their class icon in their faction's colour. The icons come from the game: the spawn menu class
-icons, the minimap officer marker and ability icons.
+A map page renders an overhead image of the current map once per round, at 8192 pixels on the long side, and
+draws each player as their class icon in their faction's color. The icons come from the game: the spawn menu
+class icons, the minimap officer marker and ability icons.
+
+The image covers the terrains that hold the spawns and capture points, so decoration terrains around a map are
+left out. Players, horses and ships are hidden while the image is taken. **Battle Area** frames the live spawn
+positions and capture points, read each time it is pressed. **Whole Map** shows the full image.
 
 The side panel has:
 
@@ -228,8 +261,8 @@ A map layer adds marks to the map:
 | --- | --- |
 | `Key` | ID for the mark. |
 | `OnPlayer`, `PlayerId` | Attaches the mark to a player's icon. Otherwise the mark is placed at `Position`. |
-| `Shape` | `Ring`, `Dot`, `Flag`, or `Outline`. `Outline` draws a coloured outline around the player's class icon. |
-| `Colour` | Mark colour. |
+| `Shape` | `Ring`, `Dot`, `Flag`, or `Outline`. `Outline` draws a colored outline around the player's class icon. |
+| `Color` | Mark color. |
 | `Size` | Size in pixels. `0` for the default. |
 | `Tooltip` | Text shown on hover. |
 
@@ -239,10 +272,11 @@ A map page only updates while it is open.
 
 | Helper | Description |
 | --- | --- |
-| `Factions.Colour(FactionCountry)` | Colour for a faction. |
+| `Factions.Color(FactionCountry)` | Color for a faction. |
 | `Factions.Name(FactionCountry)` | Display name for a faction. |
 | `Factions.ClassName(PlayerClass)` | Display name for a class. |
-| `TextIcons.Tag(string gameSprite)` | A `<sprite>` tag that draws the named game sprite in TextMeshPro text, tinted by the text colour. Returns `null` while the sprite is not loaded. A failed sprite is retried after ten seconds. |
+| `TextIcons.Tag(string gameSprite)` | A `<sprite>` tag that draws the named game sprite in TextMeshPro text, tinted by the text color. Returns `null` while the sprite is not loaded. A failed sprite is retried after ten seconds. |
+| `TextIcons.Swatch()` | A `<sprite>` tag for a rounded square, for color keys. Wrap it in a `<color>` tag to set its color. |
 | `StockIcon` | Names of P menu sprites for the `icon` parameters. |
 | `MapStyle.IconSize`, `GlowStyle` | RyLib's own config entries, for mods that show them on a page. |
 
@@ -254,21 +288,39 @@ The config file is `BepInEx\config\com.ryannlt.rylib.cfg`. Changes to the file a
 | --- | --- | --- |
 | `[Glow] ScaleWithDistance` | `true` | Scales glow outlines down with distance. |
 | `[Glow] OutlineWidth` | `0.6` | Outline thickness. `0` turns the outline off. |
-| `[Glow] Brightness` | `0.7` | Colour multiplier. Values above 1 make the game's bloom brighten the outline. |
+| `[Glow] Brightness` | `0.7` | Color multiplier. Values above 1 make the game's bloom brighten the outline. |
 | `[Glow] Glow` | `2` | Halo strength. `0` turns the halo off. |
 | `[Glow] GlowWidth` | `0.04` | Halo width. |
 | `[Map] IconSize` | `22` | Size of the class icons on map pages, in pixels. |
 
 ## Building
 
-`build.ps1` compiles against the game's assemblies and the BepInEx in an r2modman profile, then copies
-`RyLib.dll` into that profile. `package.ps1` writes a Thunderstore zip to `Package\`. The options and
-requirements are the same as [AdminHelper's](https://github.com/Ryannlt/AdminHelper#building).
+Requirements:
+
+- The game.
+- BepInEx installed in an r2modman profile.
+- A [.NET SDK](https://dotnet.microsoft.com/download), for the compiler.
+
+```
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+`build.ps1` compiles against the game's assemblies and the BepInEx in the profile, then copies `RyLib.dll` to
+`BepInEx\plugins\RyLib\` in that profile. Restart the game to load it.
+
+| Option | Effect |
+| --- | --- |
+| `-NoDeploy` | Build without copying. Use this while the game is running. |
+| `-ProfileName <name>` | Use a profile other than `Dev`. |
+
+`package.ps1` builds RyLib and writes a Thunderstore zip to `Package\`. Both scripts expect the game in
+`C:\Program Files (x86)\Steam\steamapps\common\Holdfast Nations At War`. For another location, change `$GameDir`
+at the top of the script.
 
 The PNG files in `Icons\` are embedded in the DLL. They are class icons that the game does not include, as white
 shapes on a transparent background. RyLib turns them into outlined icons that can be tinted. All other icons are
 read from the game while it runs, and no game art is included in RyLib.
 
-## Licence
+## License
 
 [MIT](https://github.com/Ryannlt/RyLib/blob/main/LICENSE).

@@ -57,6 +57,26 @@ namespace RyLib
             Log.Info(owner + " created P menu header '" + name + "'.");
             return header;
         }
+
+        public static bool StockTabVisible(string owner, StockTab tab, Func<bool> visible)
+        {
+            if (!Owners.Valid(owner, "PMenu.StockTabVisible")) return false;
+
+            if (visible == null)
+            {
+                Log.Warn(owner + ": PMenu.StockTabVisible needs a visible callback.");
+                return false;
+            }
+
+            Menu.AddStockRule(owner, tab, visible);
+            Log.Info(owner + " controls the visibility of the " + tab + " tab.");
+            return true;
+        }
+    }
+
+    public enum StockTab
+    {
+        Rules
     }
 
     internal enum PageKind
@@ -81,7 +101,7 @@ namespace RyLib
         public int PlayerId;
         public Vector3 Position;
         public MapShape Shape;
-        public Color Colour;
+        public Color Color;
         public float Size;
         public string Tooltip;
     }
@@ -353,13 +373,93 @@ namespace RyLib
     {
         private readonly string _owner;
         private readonly Transform _grid;
+        private readonly Transform _root;
+        private Transform _rows;
 
         internal Control First;
 
-        internal Section(string owner, Transform grid)
+        internal Section(string owner, Transform grid, Transform root)
         {
             _owner = owner;
             _grid = grid;
+            _root = root;
+        }
+
+        public void Slider(string label, ConfigEntry<float> entry, float min, float max, float step, string format = "0.0")
+        {
+            if (string.IsNullOrEmpty(label) || entry == null || max <= min) return;
+
+            if (!Rows.Available)
+            {
+                Add(Controls.Stepper(_owner, label, entry, step > 0f ? step : (max - min) / 10f, format, null));
+                return;
+            }
+
+            Rows.Slider(_owner, label, RowParent(), min, max, step, format,
+                delegate { return entry.Value; },
+                delegate(float value) { entry.Value = value; });
+        }
+
+        public void Slider(string label, ConfigEntry<int> entry, int min, int max)
+        {
+            if (string.IsNullOrEmpty(label) || entry == null || max <= min) return;
+
+            if (!Rows.Available)
+            {
+                Add(Controls.StepperInt(_owner, label, entry, 1, min, max, null));
+                return;
+            }
+
+            Rows.Slider(_owner, label, RowParent(), min, max, 1f, "0",
+                delegate { return entry.Value; },
+                delegate(float value) { entry.Value = Mathf.RoundToInt(value); });
+        }
+
+        public void Dropdown<T>(string label, ConfigEntry<T> entry, Func<T, string> text = null) where T : struct, Enum
+        {
+            if (string.IsNullOrEmpty(label) || entry == null) return;
+
+            if (!Rows.Available)
+            {
+                Add(Controls.Cycle(_owner, label, entry, null, null, null));
+                return;
+            }
+
+            Array values = Enum.GetValues(typeof(T));
+            List<string> options = new List<string>();
+            for (int i = 0; i < values.Length; i++)
+            {
+                T value = (T)values.GetValue(i);
+                options.Add((text != null) ? Owners.Say(_owner, label, delegate { return text(value); }, value.ToString()) : value.ToString());
+            }
+
+            Rows.Dropdown(_owner, label, RowParent(), options,
+                delegate { return Array.IndexOf(values, entry.Value); },
+                delegate(int index)
+                {
+                    if (index >= 0 && index < values.Length) entry.Value = (T)values.GetValue(index);
+                });
+        }
+
+        public void TextField(string label, ConfigEntry<string> entry)
+        {
+            if (string.IsNullOrEmpty(label) || entry == null) return;
+
+            if (!Rows.Available)
+            {
+                Log.Warn(_owner + ": text field '" + label + "' needs the admin settings template, which was not found.");
+                return;
+            }
+
+            Rows.Text(_owner, label, RowParent(),
+                delegate { return entry.Value ?? string.Empty; },
+                delegate(string value) { entry.Value = value; });
+        }
+
+        private Transform RowParent()
+        {
+            if (_rows == null) _rows = Rows.Container(_root);
+            return _rows;
         }
 
         public void Toggle(string label, ConfigEntry<bool> entry, string icon = null)
@@ -385,6 +485,12 @@ namespace RyLib
         {
             if (string.IsNullOrEmpty(label) || onClick == null) return;
             Add(Controls.Button(_owner, label, onClick, icon));
+        }
+
+        public void ConfirmButton(string label, Action onClick, string icon = null)
+        {
+            if (string.IsNullOrEmpty(label) || onClick == null) return;
+            Add(Controls.ConfirmButton(_owner, label, onClick, icon));
         }
 
         private void Add(ControlSpec spec)

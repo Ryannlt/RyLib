@@ -59,7 +59,7 @@ namespace RyLib
             int height = rect.height;
             if (width < 8 || height < 8) return false;
 
-            Color32[] pixels = Tintable.ReadColours(source.spriteSheet, new Rect(rect.x, rect.y, width, height), width, height);
+            Color32[] pixels = Tintable.ReadColors(source.spriteSheet, new Rect(rect.x, rect.y, width, height), width, height);
             if (!Repaint(pixels, width, height, left)) return false;
 
             Texture2D sheet = new Texture2D(width, height, TextureFormat.RGBA32, true);
@@ -153,9 +153,9 @@ namespace RyLib
 
             float stroke = Mathf.Max(1.5f, tall * Stroke);
             float span = Mathf.Max(stroke * 2.5f, tall * Span);
-            float centre = (letter.Left + letter.Right) * 0.5f;
-            float near = left ? centre - span * 0.5f : centre + span * 0.5f - stroke;
-            float far = left ? centre - span * 0.5f : centre - span * 0.5f;
+            float center = (letter.Left + letter.Right) * 0.5f;
+            float near = left ? center - span * 0.5f : center + span * 0.5f - stroke;
+            float far = left ? center - span * 0.5f : center - span * 0.5f;
 
             Box bar = new Box { Left = near, Right = near + stroke, Bottom = bottom, Top = top };
             Box cap = new Box { Left = far, Right = far + span, Bottom = top - stroke, Top = top };

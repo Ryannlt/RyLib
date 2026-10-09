@@ -12,7 +12,7 @@ namespace RyLib
         public Material Material;
         public float Radius = -1f;
         public float BeamHeight = -1f;
-        public Color Colour = new Color(-1f, -1f, -1f, -1f);
+        public Color Color = new Color(-1f, -1f, -1f, -1f);
     }
 
     internal static class Rings
@@ -75,12 +75,12 @@ namespace RyLib
                 }
             }
 
-            if (ring.Colour != mark.Colour)
+            if (ring.Color != mark.Color)
             {
-                ring.Colour = mark.Colour;
-                ring.Circle.startColor = ring.Circle.endColor = mark.Colour;
-                ring.Beam.startColor = ring.Beam.endColor = mark.Colour;
-                if (ring.Material != null) ring.Material.color = mark.Colour;
+                ring.Color = mark.Color;
+                ring.Circle.startColor = ring.Circle.endColor = mark.Color;
+                ring.Beam.startColor = ring.Beam.endColor = mark.Color;
+                if (ring.Material != null) ring.Material.color = mark.Color;
             }
         }
 

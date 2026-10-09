@@ -44,6 +44,21 @@ namespace RyLib
             }
         }
 
+        public static T Read<T>(string owner, string what, Func<T> source, T fallback)
+        {
+            if (source == null) return fallback;
+
+            try
+            {
+                return source();
+            }
+            catch (Exception error)
+            {
+                Log.Error(owner + ": " + what + " threw " + error.GetType().Name + ": " + error.Message);
+                return fallback;
+            }
+        }
+
         public static bool Ask(string owner, string what, Func<bool> question, bool fallback)
         {
             if (question == null) return fallback;

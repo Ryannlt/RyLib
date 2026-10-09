@@ -31,6 +31,17 @@ namespace RyLib
 
         internal static readonly List<HeaderTab> Headers = new List<HeaderTab>();
 
+        private sealed class StockRule
+        {
+            public string Owner;
+            public StockTab Tab;
+            public Func<bool> Visible;
+        }
+
+        private static readonly List<StockRule> StockRules = new List<StockRule>();
+        private static readonly List<PMenuTabType> StockSlots = new List<PMenuTabType>();
+        private static bool _rulesShown = true;
+
         private static readonly AccessTools.FieldRef<PMenuPanel, Dictionary<PMenuTabType, PMenuPanelTabBase>> TabsField =
             AccessTools.FieldRefAccess<PMenuPanel, Dictionary<PMenuTabType, PMenuPanelTabBase>>("tabs");
 
@@ -72,10 +83,13 @@ namespace RyLib
         private static GameObject _stripTemplate;
         private static GameObject _childTemplate;
         private static GameObject _headerBackground;
+        private static GameObject _settingsHeader;
+        private static bool _headerDumped;
         private static GameObject _scrollView;
         private static GameObject _controlTemplate;
         private static Canvas _panelCanvas;
         private static TMP_FontAsset _font;
+        private static UIAdminQuickAccessPanel _quickAccess;
 
         internal static Transform SpriteRoot
         {
@@ -95,6 +109,11 @@ namespace RyLib
         internal static TMP_FontAsset FontAsset
         {
             get { return _font; }
+        }
+
+        internal static UIAdminQuickAccessPanel QuickAccess
+        {
+            get { return _quickAccess; }
         }
 
         internal static void MarkDirty()
@@ -222,8 +241,10 @@ namespace RyLib
             _stripTemplate = null;
             _childTemplate = null;
             _headerBackground = null;
+            _settingsHeader = null;
             _scrollView = null;
             _controlTemplate = null;
+            _quickAccess = null;
             _panelCanvas = null;
             _layout = null;
         }
@@ -306,6 +327,9 @@ namespace RyLib
                 Controls.SetPalette(players);
             }
 
+            _quickAccess = _panel.tabsRootTransform.GetComponentInChildren<UIAdminQuickAccessPanel>(true);
+            _settingsHeader = SettingsHeader(_quickAccess);
+
             UIAdminPlayerKillLogPanel killLog = _panel.tabsRootTransform.GetComponentInChildren<UIAdminPlayerKillLogPanel>(true);
             if (killLog != null)
             {
@@ -321,6 +345,7 @@ namespace RyLib
             if (_controlTemplate == null) missing.Append(" raygun");
             if (_headerBackground == null || _scrollView == null) missing.Append(" page-frame");
             if (_players == null || _rules == null) missing.Append(" stock-headers");
+            if (!Rows.Available) missing.Append(" admin-settings");
             if (missing.Length > 0) Log.Warn("P menu templates not found:" + missing + ". Those parts of the UI are skipped.");
         }
 
@@ -424,8 +449,10 @@ namespace RyLib
             tab.Page = page;
             tab.ObjectToSelectOnOpen = header.Root;
 
-            GameObject frame = UnityEngine.Object.Instantiate(_headerBackground, root.transform);
+            bool decorated = page.Kind != PageKind.Map && _settingsHeader != null;
+            GameObject frame = UnityEngine.Object.Instantiate(decorated ? _settingsHeader : _headerBackground, root.transform);
             frame.name = "Header Background";
+            frame.SetActive(true);
             Transform search = frame.transform.Find("Search");
             TMP_InputField field = null;
             if (search != null && page.Kind == PageKind.Map) field = search.GetComponentInChildren<TMP_InputField>(true);
@@ -433,8 +460,14 @@ namespace RyLib
             UiClone.Strip(frame);
 
             Transform titleObject = frame.transform.Find("Title");
-            TMP_Text title = (titleObject == null) ? frame.GetComponentInChildren<TMP_Text>(true) : titleObject.GetComponent<TMP_Text>();
-            if (title != null) title.text = page.Name;
+            TMP_Text title = (titleObject == null) ? Largest(frame.transform) : titleObject.GetComponent<TMP_Text>();
+            if (title != null) title.text = decorated ? page.Name.ToUpperInvariant() : page.Name;
+
+            if (decorated && !_headerDumped)
+            {
+                _headerDumped = true;
+                Probe.Dump(frame.transform, 2, "settings header");
+            }
 
             if (page.Kind == PageKind.Map)
             {
@@ -647,18 +680,7 @@ namespace RyLib
                 stack.childForceExpandWidth = true;
                 stack.childForceExpandHeight = false;
 
-                if (page.TitleTemplate != null)
-                {
-                    TMP_Text heading = UnityEngine.Object.Instantiate(page.TitleTemplate, section.transform);
-                    heading.name = "Heading";
-                    heading.text = spec.Title;
-                    heading.fontSize = 24f;
-                    heading.enableAutoSizing = false;
-                    heading.alignment = TextAlignmentOptions.MidlineLeft;
-
-                    LayoutElement height = heading.gameObject.AddComponent<LayoutElement>();
-                    height.preferredHeight = 34f;
-                }
+                Rows.Heading(section.transform, spec.Title, page.TitleTemplate);
 
                 GameObject grid = new GameObject("Controls", typeof(RectTransform));
                 grid.transform.SetParent(section.transform, false);
@@ -672,7 +694,7 @@ namespace RyLib
                 cells.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
                 cells.constraintCount = columns;
 
-                Section builder = new Section(spec.Owner, grid.transform);
+                Section builder = new Section(spec.Owner, grid.transform, section.transform);
                 Owners.Run(spec.Owner, "section '" + spec.Title + "'", delegate { spec.Build(builder); });
 
                 if (builder.First != null && page.Tab != null && page.Tab.ObjectToSelectOnOpen == page.Header.Root)
@@ -681,6 +703,33 @@ namespace RyLib
                     if (first != null) page.Tab.ObjectToSelectOnOpen = first.gameObject;
                 }
             }
+        }
+
+        private static GameObject SettingsHeader(UIAdminQuickAccessPanel panel)
+        {
+            if (panel == null) return null;
+
+            Transform[] nodes = panel.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (nodes[i].name == "Header Background") return nodes[i].gameObject;
+            }
+
+            TMP_Text title = Largest(panel.transform);
+            if (title == null || title.transform.parent == null || title.transform.parent == panel.transform) return null;
+            return title.transform.parent.gameObject;
+        }
+
+        private static TMP_Text Largest(Transform root)
+        {
+            TMP_Text best = null;
+            TMP_Text[] texts = root.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                if (best == null || texts[i].fontSize > best.fontSize) best = texts[i];
+            }
+
+            return best;
         }
 
         private static void HeaderToggled(HeaderTab header, bool on)
@@ -723,8 +772,58 @@ namespace RyLib
             UpdateStrip(header);
         }
 
+        internal static void AddStockRule(string owner, StockTab tab, Func<bool> visible)
+        {
+            StockRule rule = new StockRule();
+            rule.Owner = owner;
+            rule.Tab = tab;
+            rule.Visible = visible;
+            StockRules.Add(rule);
+            MarkDirty();
+        }
+
+        private static bool StockShown(StockTab tab)
+        {
+            for (int i = 0; i < StockRules.Count; i++)
+            {
+                StockRule rule = StockRules[i];
+                if (rule.Tab != tab) continue;
+                if (!Owners.Ask(rule.Owner, tab + " tab visibility", rule.Visible, true)) return false;
+            }
+
+            return true;
+        }
+
+        private static void RefreshRules()
+        {
+            _rulesShown = StockShown(StockTab.Rules);
+            if (_rules == null) return;
+
+            if (_rules.gameObject.activeSelf != _rulesShown) _rules.gameObject.SetActive(_rulesShown);
+            if (_rulesShown || _panel == null || _panel.CurrentActiveTabType != PMenuTabType.Rules) return;
+
+            PMenuTabButton players;
+            if (StockHeaders.TryGetValue(PMenuTabType.RoundPlayers, out players) && players != null && players.toggle != null)
+            {
+                players.toggle.isOn = true;
+            }
+        }
+
+        private static void FillStockSlots(bool admin)
+        {
+            StockSlots.Clear();
+            for (int i = 0; i < StockOrder.Length; i++)
+            {
+                PMenuTabType type = StockOrder[i];
+                if (type == PMenuTabType.Rules && !_rulesShown) continue;
+                if (i >= 2 && !admin) continue;
+                StockSlots.Add(type);
+            }
+        }
+
         private static void Refresh()
         {
+            RefreshRules();
             Visible.Clear();
 
             for (int i = 0; i < Headers.Count; i++)
@@ -760,6 +859,7 @@ namespace RyLib
         {
             StringBuilder key = new StringBuilder();
             key.Append(AdminTabsShowing ? 'A' : 'a');
+            key.Append(_rulesShown ? 'R' : 'r');
             for (int i = 0; i < Visible.Count; i++) key.Append('|').Append(Visible[i].Name);
             return key.ToString();
         }
@@ -773,7 +873,7 @@ namespace RyLib
         {
             if (_banner == null || _players == null || _rules == null) return;
 
-            if (Visible.Count == 0)
+            if (Visible.Count == 0 && _rulesShown)
             {
                 Load(_players, _playersHome);
                 Load(_rules, _rulesHome);
@@ -783,12 +883,14 @@ namespace RyLib
             }
 
             bool admin = AdminTabsShowing;
-            int stock = admin ? 6 : 2;
+            FillStockSlots(admin);
+            int stock = StockSlots.Count;
             int count = stock + Visible.Count;
+            int adminStart = _rulesShown ? 2 : 1;
 
             Place(_players, 0, 1, count);
-            Place(_rules, 1, 1, count);
-            if (admin) Place(_adminTabs, 2, 4, count);
+            if (_rulesShown) Place(_rules, 1, 1, count);
+            if (admin) Place(_adminTabs, adminStart, 4, count);
 
             for (int i = 0; i < Visible.Count; i++) Place(Visible[i].Rect, stock + i, 1, count);
 
@@ -844,8 +946,8 @@ namespace RyLib
             }
 
             float pivot = button.InverseTransformPoint(text.position).x;
-            float centre = (0.5f - button.pivot.x) * button.rect.width;
-            float shift = centre - (pivot + (left + right) * 0.5f);
+            float center = (0.5f - button.pivot.x) * button.rect.width;
+            float shift = center - (pivot + (left + right) * 0.5f);
             text.anchoredPosition = new Vector2(home.y + shift, text.anchoredPosition.y);
         }
 
@@ -922,13 +1024,14 @@ namespace RyLib
                 if (Headers[i].Root != null && Headers[i].Root.activeSelf && Headers[i].Switch != null) Visible.Add(Headers[i]);
             }
 
-            if (Visible.Count == 0) return false;
+            if (Visible.Count == 0 && _rulesShown) return false;
 
             bool admin = panel.currentlyAdminMode;
-            int stock = admin ? 6 : 2;
+            FillStockSlots(admin);
+            int stock = StockSlots.Count;
             int total = stock + Visible.Count;
 
-            int current = Slot(panel.CurrentActiveTabType, admin, stock);
+            int current = Slot(panel.CurrentActiveTabType, stock);
             if (current < 0) return false;
 
             int target = (current + (next ? 1 : total - 1)) % total;
@@ -939,25 +1042,20 @@ namespace RyLib
             }
 
             PMenuTabButton button;
-            if (!StockHeaders.TryGetValue(StockOrder[target], out button) || button == null || button.toggle == null) return false;
+            if (!StockHeaders.TryGetValue(StockSlots[target], out button) || button == null || button.toggle == null) return false;
 
             button.toggle.isOn = true;
             return true;
         }
 
-        private static int Slot(PMenuTabType type, bool admin, int stock)
+        private static int Slot(PMenuTabType type, int stock)
         {
             if (type == PMenuTabType.RoundPlayers || type == PMenuTabType.RegimentPlayers ||
                 type == PMenuTabType.LimboPlayers || type == PMenuTabType.LoggedInPlayers) return 0;
 
-            if (type == PMenuTabType.Rules) return 1;
-
-            if (admin)
+            for (int i = 1; i < StockSlots.Count; i++)
             {
-                for (int i = 2; i < StockOrder.Length; i++)
-                {
-                    if (StockOrder[i] == type) return i;
-                }
+                if (StockSlots[i] == type) return i;
             }
 
             for (int i = 0; i < Visible.Count; i++)

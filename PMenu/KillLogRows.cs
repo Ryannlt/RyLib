@@ -37,7 +37,7 @@ namespace RyLib
         private const float ArmSeconds = 4f;
         private const int Columns = 3;
 
-        private static readonly Color PanelColour = new Color(0.04f, 0.05f, 0.06f, 0.94f);
+        private static readonly Color PanelColor = new Color(0.04f, 0.05f, 0.06f, 0.94f);
         private static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
 
         private sealed class Half
@@ -160,7 +160,7 @@ namespace RyLib
             rect.sizeDelta = new Vector2(rowRect.sizeDelta.x, rect.sizeDelta.y);
 
             Image back = panel.AddComponent<Image>();
-            back.color = PanelColour;
+            back.color = PanelColor;
 
             _size = panel.AddComponent<LayoutElement>();
             _size.flexibleHeight = 0f;

@@ -203,8 +203,8 @@ namespace RyLib
             float ring = Mathf.Abs(Mathf.Sqrt(x * x + y * y) - 0.55f) - 0.06f;
             float vertical = Box(x, Mathf.Abs(y) - 0.6f, 0.06f, 0.26f);
             float horizontal = Box(Mathf.Abs(x) - 0.6f, y, 0.26f, 0.06f);
-            float centre = Mathf.Sqrt(x * x + y * y) - 0.09f;
-            return Mathf.Min(Mathf.Min(ring, centre), Mathf.Min(vertical, horizontal));
+            float center = Mathf.Sqrt(x * x + y * y) - 0.09f;
+            return Mathf.Min(Mathf.Min(ring, center), Mathf.Min(vertical, horizontal));
         }
 
         private static float Box(float x, float y, float halfWidth, float halfHeight)

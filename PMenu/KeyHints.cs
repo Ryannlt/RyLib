@@ -130,7 +130,7 @@ namespace RyLib
             if (_spectateEntry == null && roots.Count > 0 && !_dumped)
             {
                 _dumped = true;
-                Log.Warn("the spectating panel has no labelled key entry to copy, so key hints are skipped there.");
+                Log.Warn("the spectating panel has no labeled key entry to copy, so key hints are skipped there.");
                 for (int i = 0; i < roots.Count; i++) Probe.Dump(roots[i], 6, "spectating panel");
             }
 

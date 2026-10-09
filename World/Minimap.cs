@@ -12,7 +12,7 @@ namespace RyLib
         public Transform Follow;
         public MapShape Shape;
         public FactionCountry Faction;
-        public Color Colour;
+        public Color Color;
         public bool AlwaysShow;
         public float Size;
     }
@@ -250,7 +250,7 @@ namespace RyLib
     internal sealed class MinimapPointer : UIMinimapPanelTrackingPointer
     {
         private static readonly Vector2 FlagPivot = new Vector2(0.28f, 0.08f);
-        private static readonly Vector2 Centre = new Vector2(0.5f, 0.5f);
+        private static readonly Vector2 Center = new Vector2(0.5f, 0.5f);
 
         internal MinimapMark Mark;
         internal bool Wanted;
@@ -275,7 +275,7 @@ namespace RyLib
 
             if (!Mathf.Approximately(rect.sizeDelta.x, mark.Size)) rect.sizeDelta = new Vector2(mark.Size, mark.Size);
 
-            Vector2 pivot = (mark.Shape == MapShape.Flag) ? FlagPivot : Centre;
+            Vector2 pivot = (mark.Shape == MapShape.Flag) ? FlagPivot : Center;
             if (rect.pivot != pivot) rect.pivot = pivot;
 
             Image image = GetComponent<Image>();
@@ -308,7 +308,7 @@ namespace RyLib
         private Color Tint()
         {
             FactionCountry viewer = ViewerFaction();
-            if (Mark.Faction == FactionCountry.None || viewer == FactionCountry.None) return Mark.Colour;
+            if (Mark.Faction == FactionCountry.None || viewer == FactionCountry.None) return Mark.Color;
             return (Mark.Faction == viewer) ? Minimap.Friendly : Minimap.Enemy;
         }
 

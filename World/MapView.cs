@@ -59,7 +59,7 @@ namespace RyLib
         private const float LegendRowHeight = 22f;
         private const float LegendIcon = 15f;
         private const float ButtonHeight = 44f;
-        private const float GridMetres = 100f;
+        private const float GridMeters = 100f;
         private const float ZoomStep = 1.25f;
         private const float MinView = 0.125f;
         private const float FullViewShare = 0.85f;
@@ -67,12 +67,12 @@ namespace RyLib
         private const float SlayArmSeconds = 4f;
         private const float IconStep = 2f;
 
-        private static readonly Color SelfColour = Color.white;
-        private static readonly Color SelectedColour = new Color(1f, 0.9f, 0.3f);
-        private static readonly Color TargetColour = new Color(0.35f, 1f, 0.45f);
-        private static readonly Color LegendColour = new Color(0.85f, 0.86f, 0.88f);
-        private static readonly Color FrameColour = new Color(0.05f, 0.06f, 0.07f, 0.92f);
-        private static readonly Color TipColour = new Color(0.05f, 0.05f, 0.06f, 0.9f);
+        private static readonly Color SelfColor = Color.white;
+        private static readonly Color SelectedColor = new Color(1f, 0.9f, 0.3f);
+        private static readonly Color TargetColor = new Color(0.35f, 1f, 0.45f);
+        private static readonly Color LegendColor = new Color(0.85f, 0.86f, 0.88f);
+        private static readonly Color FrameColor = new Color(0.05f, 0.06f, 0.07f, 0.92f);
+        private static readonly Color TipColor = new Color(0.05f, 0.05f, 0.06f, 0.9f);
         private static readonly Rect FullView = new Rect(0f, 0f, 1f, 1f);
         private static readonly List<MapView> Views = new List<MapView>();
 
@@ -192,7 +192,7 @@ namespace RyLib
 
             _frame = Box("Map Frame", root, new Vector2(Margin, -TopOffset), new Vector2(MapSize, MapSize));
             Image back = _frame.gameObject.AddComponent<Image>();
-            back.color = FrameColour;
+            back.color = FrameColor;
             back.raycastTarget = false;
 
             GameObject imageHost = new GameObject("Map Image", typeof(RectTransform));
@@ -215,19 +215,19 @@ namespace RyLib
             _markRoot = Layer("Marks", _image.rectTransform);
 
             _cameraMark = Mark(_overlayRoot, Glyphs.Arrow, CameraSize);
-            _cameraMark.color = SelfColour;
+            _cameraMark.color = SelfColor;
             _cameraMark.gameObject.SetActive(false);
 
             _selfMark = Mark(_markRoot, Glyphs.Ring, IconSize * 1.7f);
-            _selfMark.color = SelfColour;
+            _selfMark.color = SelfColor;
             _selfMark.gameObject.SetActive(false);
 
             _selectMark = Mark(_markRoot, Glyphs.Brackets, IconSize + 16f);
-            _selectMark.color = SelectedColour;
+            _selectMark.color = SelectedColor;
             _selectMark.gameObject.SetActive(false);
 
             _targetMark = Mark(_markRoot, Glyphs.Crosshair, MarkerSize);
-            _targetMark.color = TargetColour;
+            _targetMark.color = TargetColor;
             _targetMark.gameObject.SetActive(false);
 
             RectTransform panel = Box("Map Panel", root, new Vector2(Margin + MapSize + Gap, -TopOffset), new Vector2(PanelWidth, MapSize));
@@ -283,7 +283,7 @@ namespace RyLib
             _tip.anchorMin = _tip.anchorMax = new Vector2(0.5f, 0.5f);
             _tip.pivot = new Vector2(0f, 0f);
             Image tipBack = tip.AddComponent<Image>();
-            tipBack.color = TipColour;
+            tipBack.color = TipColor;
             tipBack.raycastTarget = false;
 
             _tipText = Text(template, _tip, 15f, TextAlignmentOptions.TopLeft);
@@ -472,24 +472,24 @@ namespace RyLib
             if (!found) return;
 
             Vector2 size = Vector2.Max(max - min, new Vector2(200f, 200f));
-            Vector2 centre = (min + max) * 0.5f;
+            Vector2 center = (min + max) * 0.5f;
             size *= 1.3f;
-            UseArea(new Rect(centre - size * 0.5f, size));
+            UseArea(new Rect(center - size * 0.5f, size));
         }
 
         private Rect BattleView()
         {
             if (!_hasArea) return FullView;
 
-            Rect battle = MapRender.Battle;
+            Rect battle = MapRender.FreshBattle();
             if (battle.width < 1f || battle.height < 1f) return FullView;
 
             float share = Mathf.Max(battle.width / _area.width, battle.height / _area.height);
             if (share >= FullViewShare) return FullView;
 
-            float centreX = (battle.center.x - _area.xMin) / _area.width;
-            float centreY = (battle.center.y - _area.yMin) / _area.height;
-            return ClampView(new Rect(centreX - share * 0.5f, centreY - share * 0.5f, share, share));
+            float centerX = (battle.center.x - _area.xMin) / _area.width;
+            float centerY = (battle.center.y - _area.yMin) / _area.height;
+            return ClampView(new Rect(centerX - share * 0.5f, centerY - share * 0.5f, share, share));
         }
 
         private static Rect ClampView(Rect view)
@@ -504,8 +504,8 @@ namespace RyLib
         {
             if (_grid)
             {
-                float across = _area.width / GridMetres;
-                float down = _area.height / GridMetres;
+                float across = _area.width / GridMeters;
+                float down = _area.height / GridMeters;
                 _image.uvRect = new Rect(_view.x * across, _view.y * down, _view.width * across, _view.height * down);
             }
             else
@@ -638,7 +638,7 @@ namespace RyLib
 
             Sprite icon = ClassIcons.Icon(kind);
             dot.Icon.sprite = icon;
-            dot.Icon.color = Factions.Colour(faction);
+            dot.Icon.color = Factions.Color(faction);
 
             Color outline;
             Sprite halo = _outlines.TryGetValue(id, out outline) ? Glyphs.Halo(icon) : null;
@@ -718,7 +718,7 @@ namespace RyLib
             {
                 FactionCountry faction = _factionOrder[i];
                 LegendRow row = FactionRow(used++);
-                row.Icon.color = Factions.Colour(faction);
+                row.Icon.color = Factions.Color(faction);
                 SetText(row.Text, Factions.Name(faction) + "  " + _factionAlive[faction] + " / " + _factionTotals[faction]);
             }
 
@@ -827,7 +827,7 @@ namespace RyLib
         {
             while (_classRows.Count <= index)
             {
-                _classRows.Add(Row(_legendRoot, Glyphs.Class(ClassShape.Circle), LegendColour, string.Empty));
+                _classRows.Add(Row(_legendRoot, Glyphs.Class(ClassShape.Circle), LegendColor, string.Empty));
             }
 
             return _classRows[index];
@@ -887,7 +887,7 @@ namespace RyLib
                     if (mark.Shape == MapShape.Outline)
                     {
                         if (!mark.OnPlayer || _outlines.ContainsKey(mark.PlayerId)) continue;
-                        _outlines[mark.PlayerId] = mark.Colour;
+                        _outlines[mark.PlayerId] = mark.Color;
                         if (!string.IsNullOrEmpty(mark.Tooltip)) _outlineTips[mark.PlayerId] = mark.Tooltip;
                         continue;
                     }
@@ -901,7 +901,7 @@ namespace RyLib
                     overlay.World = mark.Position;
 
                     overlay.Image.sprite = Glyphs.Mark(mark.Shape);
-                    overlay.Image.color = mark.Colour;
+                    overlay.Image.color = mark.Color;
 
                     float size = (mark.Size > 0f) ? mark.Size : DefaultSize(mark.Shape);
                     overlay.Image.rectTransform.sizeDelta = new Vector2(size, size);
@@ -1344,7 +1344,7 @@ namespace RyLib
             if (_tip != null && _tip.gameObject.activeSelf) _tip.gameObject.SetActive(false);
         }
 
-        private LegendRow Row(RectTransform parent, Sprite sprite, Color colour, string label)
+        private LegendRow Row(RectTransform parent, Sprite sprite, Color color, string label)
         {
             GameObject host = new GameObject("Legend Row", typeof(RectTransform));
             host.transform.SetParent(parent, false);
@@ -1352,7 +1352,7 @@ namespace RyLib
             RectTransform line = (RectTransform)host.transform;
 
             Image icon = Mark(line, sprite, LegendIcon);
-            icon.color = colour;
+            icon.color = color;
             RectTransform iconRect = icon.rectTransform;
             iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 0.5f);
             iconRect.pivot = new Vector2(0f, 0.5f);

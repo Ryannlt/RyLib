@@ -8,18 +8,20 @@ namespace RyLib
 {
     internal static class MapRender
     {
-        private const int LongSide = 2048;
-        private const int DetailedLongSide = 4096;
-        private const float DetailedShare = 0.6f;
-        private const float BattlePadShare = 0.25f;
-        private const float BattlePadMinimum = 120f;
+        private const int LongSide = 8192;
+        private const int FallbackLongSide = 4096;
+        private const int Tiles = 2;
+        private const float BattlePadShare = 0.15f;
+        private const float BattlePadMinimum = 80f;
         private const int Samples = 32;
         private const float Headroom = 150f;
         private const float FieldOfView = 60f;
         private const float CaptureLodBias = 4f;
 
         private static readonly int[] HiddenLayers = { 5, 7, 8, 11, 12, 26, 29 };
-        private static readonly string[] HiddenLayerWords = { "player", "character", "actor", "ragdoll" };
+        private static readonly string[] HiddenLayerWords = { "player", "character", "actor", "ragdoll", "horse" };
+        private static readonly List<Vector2> Points = new List<Vector2>();
+        private static readonly List<Terrain> Chosen = new List<Terrain>();
         private static readonly string[] FogKeywords = { "FOG_LINEAR", "FOG_EXP", "FOG_EXP2" };
         private static readonly string[] MutedWords = { "distancefog", "depthoffield" };
         private static readonly string[] MutedTypes = { "HeightFogGlobal", "HeightFogOverride", "VolumetricFog" };
@@ -43,6 +45,14 @@ namespace RyLib
         private static float _bottom;
         private static float _ground;
         private static Color _flat;
+        private static int _side;
+
+        private enum Shot
+        {
+            Done,
+            Flat,
+            Broken
+        }
 
         private sealed class Scene
         {
@@ -55,6 +65,7 @@ namespace RyLib
             public readonly List<bool> Heightmaps = new List<bool>();
             public readonly List<bool> Foliage = new List<bool>();
             public readonly List<float> TreeDistances = new List<float>();
+            public readonly List<Renderer> Hidden = new List<Renderer>();
         }
 
         internal static void Request()
@@ -116,7 +127,7 @@ namespace RyLib
 
             bool fromBorder = found;
             float top = float.MinValue;
-            Terrain[] terrains = Terrain.activeTerrains;
+            Terrain[] terrains = fromBorder ? Terrain.activeTerrains : PlayTerrains();
             for (int i = 0; i < terrains.Length; i++)
             {
                 Terrain terrain = terrains[i];
@@ -145,25 +156,22 @@ namespace RyLib
             return true;
         }
 
+        internal static Rect FreshBattle()
+        {
+            if (Area.width > 1f && Area.height > 1f) Battle = BattleArea();
+            return Battle;
+        }
+
         private static Rect BattleArea()
         {
-            ClientComponentReferenceManager client = ClientComponentReferenceManager.ClientInstance;
-            if (client == null || client.clientSpawnSectionManager == null) return Area;
-
-            Dictionary<int, SpawnSection> sections = client.clientSpawnSectionManager.availableSpawnSections;
-            if (sections == null) return Area;
+            CollectBattlePoints(Points);
 
             int count = 0;
             Vector2 min = Vector2.zero;
             Vector2 max = Vector2.zero;
-            foreach (SpawnSection section in sections.Values)
+            for (int i = 0; i < Points.Count; i++)
             {
-                if (section == null) continue;
-
-                Vector3 position = section.transform.position;
-                if (position.sqrMagnitude < 0.01f) continue;
-
-                Vector2 flat = new Vector2(position.x, position.z);
+                Vector2 flat = Points[i];
                 if (!Area.Contains(flat)) continue;
 
                 if (count == 0)
@@ -179,12 +187,125 @@ namespace RyLib
                 count++;
             }
 
+            Points.Clear();
             if (count < 2) return Area;
 
             Vector2 size = max - min;
             float pad = Mathf.Max(Mathf.Max(size.x, size.y) * BattlePadShare, BattlePadMinimum);
             return Rect.MinMaxRect(Mathf.Max(min.x - pad, Area.xMin), Mathf.Max(min.y - pad, Area.yMin),
                 Mathf.Min(max.x + pad, Area.xMax), Mathf.Min(max.y + pad, Area.yMax));
+        }
+
+        private static void CollectBattlePoints(List<Vector2> into)
+        {
+            into.Clear();
+
+            ClientComponentReferenceManager client = ClientComponentReferenceManager.ClientInstance;
+            if (client == null || client.clientSpawnSectionManager == null) return;
+
+            Dictionary<int, SpawnSection> sections = client.clientSpawnSectionManager.availableSpawnSections;
+            if (sections == null) return;
+
+            foreach (SpawnSection section in sections.Values)
+            {
+                if (section == null || !section.gameObject.activeInHierarchy) continue;
+
+                Vector3 position = section.WorldPosition;
+                if (position.sqrMagnitude >= 0.01f) into.Add(new Vector2(position.x, position.z));
+
+                SpawnSectionCapturePoint point = section.spawnSectionCapturePoint;
+                if (point == null || !point.gameObject.activeInHierarchy) continue;
+
+                Vector3 objective = point.transform.position;
+                if (objective.sqrMagnitude >= 0.01f) into.Add(new Vector2(objective.x, objective.z));
+            }
+        }
+
+        private static Terrain[] PlayTerrains()
+        {
+            Terrain[] all = Terrain.activeTerrains;
+            Chosen.Clear();
+
+            CollectBattlePoints(Points);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (Covers(all[i], Points)) Chosen.Add(all[i]);
+            }
+
+            if (Chosen.Count == 0)
+            {
+                PlayerPoints(Points);
+                if (Points.Count > 0)
+                {
+                    Vector2 centroid = Vector2.zero;
+                    for (int i = 0; i < Points.Count; i++) centroid += Points[i];
+                    centroid /= Points.Count;
+                    Points.Clear();
+                    Points.Add(centroid);
+                    for (int i = 0; i < all.Length; i++)
+                    {
+                        if (Covers(all[i], Points)) Chosen.Add(all[i]);
+                    }
+                }
+            }
+
+            if (Chosen.Count == 0)
+            {
+                Terrain largest = null;
+                float area = 0f;
+                for (int i = 0; i < all.Length; i++)
+                {
+                    Terrain terrain = all[i];
+                    if (terrain == null || terrain.terrainData == null) continue;
+
+                    float size = terrain.terrainData.size.x * terrain.terrainData.size.z;
+                    if (size <= area) continue;
+
+                    area = size;
+                    largest = terrain;
+                }
+
+                if (largest != null) Chosen.Add(largest);
+            }
+
+            Points.Clear();
+            if (Chosen.Count == 0) return all;
+
+            if (Chosen.Count < all.Length) Log.Info("map area fitted to " + Chosen.Count + " of " + all.Length + " terrains.");
+            return Chosen.ToArray();
+        }
+
+        private static bool Covers(Terrain terrain, List<Vector2> points)
+        {
+            if (terrain == null || terrain.terrainData == null) return false;
+
+            Vector3 origin = terrain.transform.position;
+            Vector3 size = terrain.terrainData.size;
+            for (int i = 0; i < points.Count; i++)
+            {
+                Vector2 point = points[i];
+                if (point.x >= origin.x && point.y >= origin.z && point.x <= origin.x + size.x && point.y <= origin.z + size.z) return true;
+            }
+
+            return false;
+        }
+
+        private static void PlayerPoints(List<Vector2> into)
+        {
+            into.Clear();
+
+            ClientComponentReferenceManager client = ClientComponentReferenceManager.ClientInstance;
+            if (client == null || client.clientRoundPlayerManager == null) return;
+
+            List<ClientRoundPlayerProxy> players = client.clientRoundPlayerManager.roundPlayersList;
+            for (int i = 0; i < players.Count; i++)
+            {
+                ClientRoundPlayerProxy player = players[i];
+                if (player == null || player.PlayerTransformData == null || player.PlayerBase == null || !player.PlayerBase.SpawnedAndAlive) continue;
+
+                Vector3 position = player.PlayerTransformData.position;
+                into.Add(new Vector2(position.x, position.z));
+            }
         }
 
         private static float Ground(Terrain[] terrains, float fallback)
@@ -223,19 +344,19 @@ namespace RyLib
             {
                 if (Shoot(true))
                 {
-                    Log.Info("map rendered: " + Area.width.ToString("0") + " x " + Area.height.ToString("0") + " m, perspective, " +
-                             "average colour " + _flat + ", muted " + Describe(scene) + ".");
+                    Log.Info("map rendered: " + Area.width.ToString("0") + " x " + Area.height.ToString("0") + " m at " + _side + " px, perspective, " +
+                             "average color " + _flat + ", muted " + Describe(scene) + ", hid " + scene.Hidden.Count + " renderers.");
                     return true;
                 }
 
                 if (Shoot(false))
                 {
-                    Log.Info("map rendered: " + Area.width.ToString("0") + " x " + Area.height.ToString("0") + " m, orthographic, " +
-                             "average colour " + _flat + ", muted " + Describe(scene) + ".");
+                    Log.Info("map rendered: " + Area.width.ToString("0") + " x " + Area.height.ToString("0") + " m at " + _side + " px, orthographic, " +
+                             "average color " + _flat + ", muted " + Describe(scene) + ".");
                     return true;
                 }
 
-                Log.Warn("the overhead map came back as one flat colour both ways (colour " + _flat + ", culling mask 0x" +
+                Log.Warn("the overhead map came back as one flat color both ways (color " + _flat + ", culling mask 0x" +
                          Mask().ToString("X8") + ", muted " + Describe(scene) + "), so the map shows a plain grid instead.");
                 return false;
             }
@@ -263,16 +384,18 @@ namespace RyLib
                 scene.Keywords.Add(FogKeywords[i]);
             }
 
-            MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
-            for (int i = 0; i < behaviours.Length; i++)
+            MonoBehaviour[] behaviors = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
+            for (int i = 0; i < behaviors.Length; i++)
             {
-                MonoBehaviour behaviour = behaviours[i];
-                if (behaviour == null || !behaviour.enabled) continue;
-                if (!MutedType(behaviour.GetType().Name) && !Muted(behaviour.GetType().Name) && !Muted(behaviour.gameObject.name)) continue;
+                MonoBehaviour behavior = behaviors[i];
+                if (behavior == null || !behavior.enabled) continue;
+                if (!MutedType(behavior.GetType().Name) && !Muted(behavior.GetType().Name) && !Muted(behavior.gameObject.name)) continue;
 
-                behaviour.enabled = false;
-                scene.Muted.Add(behaviour);
+                behavior.enabled = false;
+                scene.Muted.Add(behavior);
             }
+
+            HideMovers(scene);
 
             Terrain[] terrains = Terrain.activeTerrains;
             for (int i = 0; i < terrains.Length; i++)
@@ -305,6 +428,11 @@ namespace RyLib
                 if (scene.Muted[i] != null) scene.Muted[i].enabled = true;
             }
 
+            for (int i = 0; i < scene.Hidden.Count; i++)
+            {
+                if (scene.Hidden[i] != null) scene.Hidden[i].enabled = true;
+            }
+
             for (int i = 0; i < scene.Terrains.Count; i++)
             {
                 Terrain terrain = scene.Terrains[i];
@@ -313,6 +441,61 @@ namespace RyLib
                 terrain.drawHeightmap = scene.Heightmaps[i];
                 terrain.drawTreesAndFoliage = scene.Foliage[i];
                 terrain.treeDistance = scene.TreeDistances[i];
+            }
+        }
+
+        private static void HideMovers(Scene scene)
+        {
+            ClientComponentReferenceManager client = ClientComponentReferenceManager.ClientInstance;
+            if (client == null) return;
+
+            ClientRoundPlayerManager players = client.clientRoundPlayerManager;
+            if (players != null)
+            {
+                List<ClientRoundPlayerProxy> remotes = players.roundPlayersList;
+                for (int i = 0; i < remotes.Count; i++)
+                {
+                    if (remotes[i] != null) Hide(scene, remotes[i].PlayerObject);
+                }
+
+                if (players.LocalPlayer != null) Hide(scene, players.LocalPlayer.PlayerObject);
+            }
+
+            if (client.clientVehicleManager != null && client.clientVehicleManager.RoundVehicles != null)
+            {
+                foreach (RoundVehicleRepresentation vehicle in client.clientVehicleManager.RoundVehicles.Values)
+                {
+                    if (vehicle != null) Hide(scene, vehicle.VehicleObject);
+                }
+            }
+
+            if (client.clientShipManager != null)
+            {
+                dfList<RoundShipRepresentation> ships = client.clientShipManager.GetAllRoundShips();
+                if (ships != null)
+                {
+                    for (int i = 0; i < ships.Count; i++)
+                    {
+                        if (ships[i] != null) Hide(scene, ships[i].ShipObject);
+                    }
+
+                    ships.Release();
+                }
+            }
+        }
+
+        private static void Hide(Scene scene, GameObject root)
+        {
+            if (root == null) return;
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled) continue;
+
+                renderer.enabled = false;
+                scene.Hidden.Add(renderer);
             }
         }
 
@@ -357,26 +540,52 @@ namespace RyLib
 
         private static bool Shoot(bool perspective)
         {
-            float share = Mathf.Max(Battle.width / Area.width, Battle.height / Area.height);
-            int longSide = (share > 0f && share < DetailedShare) ? DetailedLongSide : LongSide;
+            if (SystemInfo.maxTextureSize >= LongSide)
+            {
+                Shot shot = ShootSafely(perspective, LongSide, Tiles);
+                if (shot != Shot.Broken) return shot == Shot.Done;
+            }
 
+            return ShootSafely(perspective, FallbackLongSide, 1) == Shot.Done;
+        }
+
+        private static Shot ShootSafely(bool perspective, int longSide, int tiles)
+        {
+            try
+            {
+                return ShootAt(perspective, longSide, tiles);
+            }
+            catch (Exception error)
+            {
+                Log.Warn("the " + longSide + " px map render failed: " + error.Message);
+                return Shot.Broken;
+            }
+        }
+
+        private static Shot ShootAt(bool perspective, int longSide, int tiles)
+        {
+            int step = 4 * tiles;
             int width;
             int height;
             if (Area.width >= Area.height)
             {
                 width = longSide;
-                height = Mathf.Max(64, Mathf.RoundToInt(longSide * Area.height / Area.width / 4f) * 4);
+                height = Mathf.Max(64, Mathf.RoundToInt(longSide * Area.height / Area.width / step) * step);
             }
             else
             {
                 height = longSide;
-                width = Mathf.Max(64, Mathf.RoundToInt(longSide * Area.width / Area.height / 4f) * 4);
+                width = Mathf.Max(64, Mathf.RoundToInt(longSide * Area.width / Area.height / step) * step);
             }
 
-            RenderTexture target = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32);
+            int tileWidth = width / tiles;
+            int tileHeight = height / tiles;
+
+            RenderTexture target = RenderTexture.GetTemporary(tileWidth, tileHeight, 24, RenderTextureFormat.ARGB32);
             RenderTexture previous = RenderTexture.active;
             GameObject host = new GameObject("RyLib_MapCamera");
             host.transform.SetParent(World.Root, false);
+            Texture2D copy = null;
 
             try
             {
@@ -385,19 +594,44 @@ namespace RyLib
                 Setup(camera, perspective);
                 camera.targetTexture = target;
 
-                camera.Render();
-                camera.Render();
+                float near = camera.nearClipPlane;
+                float far = camera.farClipPlane;
+                float halfHeight = perspective ? near * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad) : camera.orthographicSize;
+                float halfWidth = halfHeight * (Area.width / Area.height);
 
-                Texture2D copy = new Texture2D(width, height, TextureFormat.RGB24, true);
+                copy = new Texture2D(width, height, TextureFormat.RGB24, true);
                 copy.name = "RyLib Map";
-                RenderTexture.active = target;
-                copy.ReadPixels(new Rect(0f, 0f, width, height), 0, 0, false);
-                RenderTexture.active = previous;
+
+                for (int row = 0; row < tiles; row++)
+                {
+                    for (int column = 0; column < tiles; column++)
+                    {
+                        float left = -halfWidth + 2f * halfWidth * column / tiles;
+                        float right = left + 2f * halfWidth / tiles;
+                        float bottom = -halfHeight + 2f * halfHeight * row / tiles;
+                        float top = bottom + 2f * halfHeight / tiles;
+
+                        if (tiles > 1)
+                        {
+                            camera.projectionMatrix = perspective
+                                ? Matrix4x4.Frustum(left, right, bottom, top, near, far)
+                                : Matrix4x4.Ortho(left, right, bottom, top, near, far);
+                        }
+
+                        camera.Render();
+                        camera.Render();
+
+                        RenderTexture.active = target;
+                        copy.ReadPixels(new Rect(0f, 0f, tileWidth, tileHeight), column * tileWidth, row * tileHeight, false);
+                        RenderTexture.active = previous;
+                    }
+                }
 
                 if (Uniform(copy, width, height))
                 {
                     UnityEngine.Object.Destroy(copy);
-                    return false;
+                    copy = null;
+                    return Shot.Flat;
                 }
 
                 copy.Apply(true, false);
@@ -405,11 +639,14 @@ namespace RyLib
                 copy.Apply(false, true);
                 if (Texture != null) UnityEngine.Object.Destroy(Texture);
                 Texture = copy;
-                return true;
+                copy = null;
+                _side = Mathf.Max(width, height);
+                return Shot.Done;
             }
             finally
             {
                 RenderTexture.active = previous;
+                if (copy != null) UnityEngine.Object.Destroy(copy);
                 UnityEngine.Object.Destroy(host);
                 RenderTexture.ReleaseTemporary(target);
             }
@@ -488,9 +725,9 @@ namespace RyLib
             {
                 for (int x = 0; x < Samples; x++)
                 {
-                    Color colour = copy.GetPixel((x * 2 + 1) * width / (Samples * 2), (y * 2 + 1) * height / (Samples * 2));
-                    samples[y * Samples + x] = colour;
-                    mean += colour;
+                    Color color = copy.GetPixel((x * 2 + 1) * width / (Samples * 2), (y * 2 + 1) * height / (Samples * 2));
+                    samples[y * Samples + x] = color;
+                    mean += color;
                 }
             }
 
@@ -500,8 +737,8 @@ namespace RyLib
             int different = 0;
             for (int i = 0; i < samples.Length; i++)
             {
-                Color colour = samples[i];
-                float delta = Mathf.Abs(colour.r - mean.r) + Mathf.Abs(colour.g - mean.g) + Mathf.Abs(colour.b - mean.b);
+                Color color = samples[i];
+                float delta = Mathf.Abs(color.r - mean.r) + Mathf.Abs(color.g - mean.g) + Mathf.Abs(color.b - mean.b);
                 if (delta > 0.06f) different++;
             }
 

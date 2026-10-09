@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.0
+
+- **Settings rows.** Sections can hold sliders, dropdowns and text fields, copied from the game's Admin tab:
+  `Section.Slider`, `Section.Dropdown` and `Section.TextField`.
+- **`Section.ConfirmButton`** needs a second click within four seconds.
+- **Admin tab look.** Section pages and the Mods tab use the Admin tab's header with its gold bars, section titles
+  have a divider line, and sliders and text boxes sit in the Admin tab's boxes.
+- **Hide the Rules tab.** `PMenu.StockTabVisible(owner, StockTab.Rules, visible)` hides the game's Rules tab, and
+  the other headers share its space.
+- **Map pages.**
+  - The image is 8192 pixels on the long side.
+  - It covers only the terrains that hold the spawns and capture points.
+  - Players, horses and ships are hidden while it is taken.
+  - Battle Area frames the live spawn positions, so moved spawns are framed correctly.
+- **`TextIcons.Swatch()`** gives a rounded square for color keys.
+- **American spelling.** `WorldMark.Colour`, `MinimapMark.Colour`, `MapMark.Colour` and `Factions.Colour()` are
+  now `Color`. Mods built against 1.0.0 that use them need a rebuild.
+
 ## 1.0.0
 
 First release. Everything a mod can ask for is listed in the README; in short:

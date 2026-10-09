@@ -18,6 +18,10 @@ namespace RyLib
         private static readonly Dictionary<string, string> Tags = new Dictionary<string, string>(StringComparer.Ordinal);
         private static readonly Dictionary<string, float> Failed = new Dictionary<string, float>(StringComparer.Ordinal);
 
+        private const string SwatchKey = "RyLib_Swatch";
+
+        private static string _swatch;
+
         public static string Tag(string gameSprite)
         {
             if (string.IsNullOrEmpty(gameSprite)) return null;
@@ -47,6 +51,42 @@ namespace RyLib
             Tags[gameSprite] = tag;
             Failed.Remove(gameSprite);
             return tag;
+        }
+
+        public static string Swatch()
+        {
+            if (_swatch != null && RegisteredName(SwatchKey)) return _swatch;
+
+            Texture2D sheet = MakeSwatch();
+            GlyphMetrics metrics = new GlyphMetrics(GlyphSize, GlyphSize, 0f, GlyphSize * Rise, GlyphSize);
+            _swatch = Register(SwatchKey, sheet, metrics, 1f, null) ? "<sprite name=\"" + SwatchKey + "\" tint=1>" : null;
+            return _swatch;
+        }
+
+        private static Texture2D MakeSwatch()
+        {
+            const int margin = 10;
+            const float corner = 8f;
+
+            Color32[] pixels = new Color32[GlyphSize * GlyphSize];
+            for (int y = 0; y < GlyphSize; y++)
+            {
+                for (int x = 0; x < GlyphSize; x++)
+                {
+                    float dx = Mathf.Max(0f, Mathf.Max(margin + corner - (x + 0.5f), (x + 0.5f) - (GlyphSize - margin - corner)));
+                    float dy = Mathf.Max(0f, Mathf.Max(margin + corner - (y + 0.5f), (y + 0.5f) - (GlyphSize - margin - corner)));
+                    float alpha = Mathf.Clamp01(corner + 0.5f - Mathf.Sqrt(dx * dx + dy * dy));
+                    pixels[y * GlyphSize + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            }
+
+            Texture2D sheet = new Texture2D(GlyphSize, GlyphSize, TextureFormat.RGBA32, true);
+            sheet.wrapMode = TextureWrapMode.Clamp;
+            sheet.filterMode = FilterMode.Trilinear;
+            sheet.SetPixels32(pixels);
+            sheet.Apply(true, false);
+            sheet.hideFlags = HideFlags.HideAndDontSave;
+            return sheet;
         }
 
         private static string Key(string gameSprite)

@@ -81,7 +81,7 @@ namespace RyLib
                 (max.x - min.x) * texture.width, (max.y - min.y) * texture.height);
         }
 
-        internal static Color32[] ReadColours(Texture texture, Rect rect, int width, int height)
+        internal static Color32[] ReadColors(Texture texture, Rect rect, int width, int height)
         {
             RenderTexture target = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
             RenderTexture previous = RenderTexture.active;

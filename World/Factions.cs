@@ -17,7 +17,7 @@ namespace RyLib
         public static readonly Color Central = new Color(1f, 0.7f, 0.35f);
         public static readonly Color Neutral = new Color(0.75f, 0.75f, 0.78f);
 
-        public static Color Colour(FactionCountry faction)
+        public static Color Color(FactionCountry faction)
         {
             switch (faction)
             {

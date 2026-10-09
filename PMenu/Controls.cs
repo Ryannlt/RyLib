@@ -40,6 +40,8 @@ namespace RyLib
 
     internal static class Controls
     {
+        private const float ConfirmSeconds = 4f;
+
         private static readonly List<Control> Live = new List<Control>();
 
         private static Color _labelOn = new Color(1f, 1f, 1f, 0.588f);
@@ -96,6 +98,30 @@ namespace RyLib
             return spec;
         }
 
+        public static ControlSpec ConfirmButton(string owner, string label, Action onClick, string icon)
+        {
+            float armedUntil = -1f;
+
+            ControlSpec spec = new ControlSpec();
+            spec.Owner = owner;
+            spec.Key = label;
+            spec.Icon = icon;
+            spec.Text = delegate { return (Time.unscaledTime <= armedUntil) ? "Confirm " + label : label; };
+            spec.IsOn = delegate { return true; };
+            spec.Click = delegate
+            {
+                if (Time.unscaledTime <= armedUntil)
+                {
+                    armedUntil = -1f;
+                    onClick();
+                    return;
+                }
+
+                armedUntil = Time.unscaledTime + ConfirmSeconds;
+            };
+            return spec;
+        }
+
         public static ControlSpec Stepper(string owner, string label, ConfigEntry<float> entry, float step, string format,
             string icon)
         {
@@ -107,6 +133,20 @@ namespace RyLib
             spec.IsOn = delegate { return true; };
             spec.Click = delegate { Nudge(entry, step); };
             spec.RightClick = delegate { Nudge(entry, -step); };
+            return spec;
+        }
+
+        public static ControlSpec StepperInt(string owner, string label, ConfigEntry<int> entry, int step, int min, int max,
+            string icon)
+        {
+            ControlSpec spec = new ControlSpec();
+            spec.Owner = owner;
+            spec.Key = label;
+            spec.Icon = icon;
+            spec.Text = delegate { return label + "  " + entry.Value; };
+            spec.IsOn = delegate { return true; };
+            spec.Click = delegate { entry.Value = Mathf.Clamp(entry.Value + step, min, max); };
+            spec.RightClick = delegate { entry.Value = Mathf.Clamp(entry.Value - step, min, max); };
             return spec;
         }
 
@@ -204,6 +244,8 @@ namespace RyLib
 
                 if (control.Root.activeInHierarchy) Refresh(control);
             }
+
+            Rows.RefreshVisible();
         }
 
         private static Image FindIcon(Transform root)
